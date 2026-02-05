@@ -18,36 +18,65 @@ public class AgentUtilityBrain : MonoBehaviour
         // 2. Calculate Utility
         // 3. Move toward the highest utility
         SimulateDecision();
+
+
     }
 
     void SimulateDecision()
     {
-        // Find all objects within sensory range
         Collider2D[] sensedObjects = Physics2D.OverlapCircleAll(transform.position, detectionRadius);
-        Vector2 moveDirection = Vector2.zero;
+
+        Vector2 aversionForce = Vector2.zero;
+        Vector2 attractionForce = Vector2.zero;
+        int fireCount = 0;
+        int woolCount = 0;
 
         foreach (var obj in sensedObjects)
         {
             float distance = Vector2.Distance(transform.position, obj.transform.position);
-            if (distance <= 0.1f) continue; // Avoid dividing by zero
+            if (distance <= 0.1f) continue;
 
             Vector2 directionToObj = (obj.transform.position - transform.position).normalized;
 
-            // MATH: Utility = Weight / Distance
-            if (obj.CompareTag("Wool"))
+            if (obj.CompareTag("Fire"))
             {
-                // Move TOWARD Attraction
-                moveDirection += directionToObj * (attractionWeight / distance);
+                // Summing Aversion: More fire = more fear
+                aversionForce -= directionToObj * (aversionWeight / distance);
+                fireCount++;
             }
-            else if (obj.CompareTag("Fire"))
+            else if (obj.CompareTag("Wool"))
             {
-                // Move AWAY from Aversion
-                moveDirection -= directionToObj * (aversionWeight / distance);
+                // Summing Attraction: More wool = more lure
+                attractionForce += directionToObj * (attractionWeight / distance);
+                woolCount++;
+            }
+
+            if (fireCount > 0)
+            {
+                GetComponent<SpriteRenderer>().color = Color.red; // Panic state
+            }
+            else if (woolCount > 0)
+            {
+                GetComponent<SpriteRenderer>().color = Color.green; // Attracted state
+            }
+            else
+            {
+                GetComponent<SpriteRenderer>().color = Color.white; // Neutral state
             }
         }
 
-        // Apply the simulated movement
-        transform.Translate(moveDirection.normalized * moveSpeed * Time.deltaTime);
+        // PRIORITY LOGIC: 
+        // If there is ANY fire nearby, the agent prioritizes escape.
+        if (fireCount > 0)
+        {
+            // The agent "Panics" and ignores wool to escape the heat
+            transform.Translate(aversionForce.normalized * (moveSpeed * 1.5f) * Time.deltaTime);
+        }
+        else if (woolCount > 0)
+        {
+            // If it's safe (no fire), it pursues the wool
+            transform.Translate(attractionForce.normalized * moveSpeed * Time.deltaTime);
+        }
     }
 
     // This draws the "Senses" in the editor for your class presentation

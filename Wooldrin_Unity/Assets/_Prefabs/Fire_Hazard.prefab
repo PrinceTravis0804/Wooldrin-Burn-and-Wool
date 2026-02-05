@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 825874376473557743}
   - component: {fileID: 5482992096046792270}
   - component: {fileID: 6594878863339923835}
+  - component: {fileID: -835041918043364232}
   m_Layer: 0
   m_Name: Fire_Hazard
   m_TagString: Fire
@@ -130,3 +131,16 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
+--- !u!114 &-835041918043364232
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8089395574225788697}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 530bd534d3af3f34eb280a235d069f38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lifetime: 3
