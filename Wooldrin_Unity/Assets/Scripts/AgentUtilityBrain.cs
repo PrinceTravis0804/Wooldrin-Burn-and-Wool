@@ -59,7 +59,7 @@ public class AgentUtilityBrain : MonoBehaviour
             {
                 GetComponent<SpriteRenderer>().color = Color.green; // Attracted state
             }
-            else
+            else 
             {
                 GetComponent<SpriteRenderer>().color = Color.white; // Neutral state
             }
