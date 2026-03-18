@@ -1,7 +1,6 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody2D))]
 public class AgentUtilityBrain : MonoBehaviour
 {
     [Header("Simulation Settings")]
@@ -12,19 +11,28 @@ public class AgentUtilityBrain : MonoBehaviour
     public float attractionWeight = 10f; // Scent of Wool
     public float aversionWeight = 15f;   // Heat/Fire
 
-    void Update()
+    private Rigidbody2D rb;
+    private SpriteRenderer spriteRenderer;
+
+    void Start()
     {
-        // 1. Sense the environment
-        // 2. Calculate Utility
-        // 3. Move toward the highest utility
+        rb = GetComponent<Rigidbody2D>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
+
+        // Ensure the gravity is zero for top-down physics
+        rb.gravityScale = 0;
+        rb.freezeRotation = true;
+    }
+
+    void FixedUpdate()
+    {
         SimulateDecision();
-
-
     }
 
     void SimulateDecision()
     {
-        Collider2D[] sensedObjects = Physics2D.OverlapCircleAll(transform.position, detectionRadius);
+        // 1. Sense the environment
+        Collider2D[] sensedObjects = Physics2D.OverlapCircleAll(rb.position, detectionRadius);
 
         Vector2 aversionForce = Vector2.zero;
         Vector2 attractionForce = Vector2.zero;
@@ -33,56 +41,56 @@ public class AgentUtilityBrain : MonoBehaviour
 
         foreach (var obj in sensedObjects)
         {
-            float distance = Vector2.Distance(transform.position, obj.transform.position);
-            if (distance <= 0.1f) continue;
+            float distance = Vector2.Distance(rb.position, obj.transform.position);
 
-            Vector2 directionToObj = (obj.transform.position - transform.position).normalized;
+            // Prevent division by zero or jittering when too close
+            if (distance <= 0.2f) continue;
+
+            Vector2 directionToObj = ((Vector2)obj.transform.position - rb.position).normalized;
 
             if (obj.CompareTag("Fire"))
             {
-                // Summing Aversion: More fire = more fear
+                // Inverse Square Law: Force = Weight / Distance
                 aversionForce -= directionToObj * (aversionWeight / distance);
                 fireCount++;
             }
             else if (obj.CompareTag("Wool"))
             {
-                // Summing Attraction: More wool = more lure
                 attractionForce += directionToObj * (attractionWeight / distance);
                 woolCount++;
             }
-
-            if (fireCount > 0)
-            {
-                GetComponent<SpriteRenderer>().color = Color.red; // Panic state
-            }
-            else if (woolCount > 0)
-            {
-                GetComponent<SpriteRenderer>().color = Color.green; // Attracted state
-            }
-            else 
-            {
-                GetComponent<SpriteRenderer>().color = Color.white; // Neutral state
-            }
         }
 
-        // PRIORITY LOGIC: 
-        // If there is ANY fire nearby, the agent prioritizes escape.
+        // 2. State Logic & Visual Feedback
+        // We calculate the state AFTER the loop so the Priority (Fire) always wins
         if (fireCount > 0)
         {
-            // The agent "Panics" and ignores wool to escape the heat
-            transform.Translate(aversionForce.normalized * (moveSpeed * 1.5f) * Time.deltaTime);
+            spriteRenderer.color = Color.red; // Panic State
+            MoveAgent(aversionForce, moveSpeed * 1.5f); // Escape is faster than grazing
         }
         else if (woolCount > 0)
         {
-            // If it's safe (no fire), it pursues the wool
-            transform.Translate(attractionForce.normalized * moveSpeed * Time.deltaTime);
+            spriteRenderer.color = Color.green; // Lure State
+            MoveAgent(attractionForce, moveSpeed);
+        }
+        else
+        {
+            spriteRenderer.color = Color.white; // Neutral State
+            rb.velocity = Vector2.Lerp(rb.velocity, Vector2.zero, 0.1f); // Smooth stop
         }
     }
 
-    // This draws the "Senses" in the editor for your class presentation
+    void MoveAgent(Vector2 force, float speed)
+    {
+        // Calculate the next position using physics-friendly MovePosition
+        Vector2 newPos = rb.position + force.normalized * speed * Time.fixedDeltaTime;
+        rb.MovePosition(newPos);
+    }
+
+    // This is for your class presentation—it shows the "Senses" in the Editor
     private void OnDrawGizmos()
     {
-        Gizmos.color = Color.yellow;
+        Gizmos.color = new Color(1, 1, 0, 0.2f); // Transparent Yellow
         Gizmos.DrawWireSphere(transform.position, detectionRadius);
     }
 }
