@@ -3,7 +3,10 @@ guid: e23e663279407e749ab341019ba02b9b
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - rb: {instanceID: 0}
+  - woolPrefab: {fileID: 1794162787947737358, guid: cde63d7206806c740b21516146f251a8, type: 3}
+  - spirit: {instanceID: 0}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

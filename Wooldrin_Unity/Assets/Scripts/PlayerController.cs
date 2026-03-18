@@ -9,43 +9,53 @@ public class PlayerController : MonoBehaviour
 
     [Header("Ability References")]
     public GameObject woolPrefab;
-    public float dropDistance = 0.5f;
+    public float dropDistance = 0.2f; // Snappier arrival
 
-    // NEW: Reference to the Spirit's script
+    [Header("Spirit Connection")]
     public FireSpiritController spirit;
 
     private Vector2 movement;
     private Vector2 targetLocation;
     private bool isAutoMoving = false;
 
+    [Header("State")]
+    public bool canDropWool = false;
+
     void Update()
     {
-        // 1. Manual Movement Input
+        // 1. Manual WASD Input
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
-        // Cancel auto-move if a key is pressed
-        if (movement.sqrMagnitude > 0)
+        // 2. Cancel auto-move if player actually presses a key
+        if (movement.magnitude > 0.1f)
         {
             isAutoMoving = false;
         }
 
-        // 2. Left Click: Auto-move to drop WOOL
-        if (Input.GetMouseButtonDown(0))
+        // 3. LEFT CLICK: Drop Wool
+        if (Input.GetMouseButtonDown(0) && canDropWool)
         {
-            targetLocation = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            // Fix the Z-offset for 2D screens
+            Vector3 mousePos = Input.mousePosition;
+            mousePos.z = -Camera.main.transform.position.z;
+
+            Vector3 worldPoint = Camera.main.ScreenToWorldPoint(mousePos);
+            targetLocation = new Vector2(worldPoint.x, worldPoint.y);
+
             isAutoMoving = true;
+
+            // Visual guide in Scene View
+            Debug.DrawLine(transform.position, targetLocation, Color.white, 1f);
         }
 
-        // 3. Right Click: Command SPIRIT to drop FIRE
+        // 4. RIGHT CLICK: Command Spirit
         if (Input.GetMouseButtonDown(1))
         {
             if (spirit != null)
             {
                 Vector3 fireTarget = Camera.main.ScreenToWorldPoint(Input.mousePosition);
                 fireTarget.z = 0;
-
-                // Calling the method from the FireSpiritController script
                 spirit.StartFireAction(fireTarget);
             }
         }
@@ -55,17 +65,26 @@ public class PlayerController : MonoBehaviour
     {
         if (isAutoMoving)
         {
-            Vector2 newPos = Vector2.MoveTowards(rb.position, targetLocation, moveSpeed * Time.fixedDeltaTime);
-            rb.MovePosition(newPos);
+            float distance = Vector2.Distance(rb.position, targetLocation);
 
-            if (Vector2.Distance(rb.position, targetLocation) < dropDistance)
+            if (distance > dropDistance)
             {
-                Instantiate(woolPrefab, transform.position, Quaternion.identity);
+                Vector2 newPos = Vector2.MoveTowards(rb.position, targetLocation, moveSpeed * Time.fixedDeltaTime);
+                rb.MovePosition(newPos);
+            }
+            else
+            {
+                // FIX: Spawn the wool at the TARGET, not at Wooldrin's feet
+                // This prevents the physics engine from "shoving" Wooldrin away
+                Instantiate(woolPrefab, targetLocation, Quaternion.identity);
+
                 isAutoMoving = false;
+                rb.velocity = Vector2.zero;
             }
         }
         else
         {
+            // Manual Movement
             rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
         }
     }
