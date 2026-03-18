@@ -3,6 +3,9 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public class AgentUtilityBrain : MonoBehaviour
 {
+    [Header("Eating Settings")]
+    public float eatStrength = 10f; // How much wool it eats per second
+
     [Header("Simulation Settings")]
     public float detectionRadius = 5f;
     public float moveSpeed = 2f;
@@ -27,6 +30,22 @@ public class AgentUtilityBrain : MonoBehaviour
     void FixedUpdate()
     {
         SimulateDecision();
+    }
+
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        if (collision.gameObject.CompareTag("Wool"))
+        {
+            WoolResource wool = collision.gameObject.GetComponent<WoolResource>();
+            if (wool != null)
+            {
+                // Eat the wool over time
+                wool.GetConsumed(eatStrength * Time.deltaTime);
+
+                // Optionally: Slow down the agent while eating
+                rb.velocity *= 0.5f;
+            }
+        }
     }
 
     void SimulateDecision()
