@@ -2,29 +2,30 @@ using UnityEngine;
 
 public class WoolResource : MonoBehaviour
 {
-    [Header("Health Settings")]
-    public float nourishment = 100f; // How much "food" is in this wool
-    public float shrinkSpeed = 0.5f; // How fast it visually shrinks while eaten
-
-    private Vector3 initialScale;
+    public float health = 100f;
+    private Vector3 originalScale;
 
     void Start()
     {
-        initialScale = transform.localScale;
+        originalScale = transform.localScale;
+        // Check if the tag is correct
+        if (!gameObject.CompareTag("Wool"))
+        {
+            Debug.LogError("CRITICAL: This wool object is NOT tagged 'Wool'! The Agent won't see it.");
+        }
     }
 
-    // This is called by the Agent when they are touching the wool
-    public void GetConsumed(float amount)
+    public void TakeBite(float damage)
     {
-        nourishment -= amount;
+        Debug.Log("MUNCH! Wool is being eaten. Current Health: " + health);
+        health -= damage;
 
-        // Visually shrink the wool as it gets eaten
-        float scalePercent = nourishment / 100f;
-        transform.localScale = initialScale * scalePercent;
+        float t = health / 100f;
+        transform.localScale = originalScale * t;
 
-        if (nourishment <= 0)
+        if (health <= 0)
         {
-            // Optional: Trigger a "munch" sound or particles here
+            Debug.Log("Wool is gone!");
             Destroy(gameObject);
         }
     }

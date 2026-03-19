@@ -3,28 +3,37 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody2D))]
 public class AgentUtilityBrain : MonoBehaviour
 {
-    [Header("Eating Settings")]
-    public float eatStrength = 10f; // How much wool it eats per second
+    [Header("Eating & Damage Logic")]
+    public float biteStrength = 20f;   // The variable the error was missing!
+    public float damageCooldown = 1.0f; // Prevent instant death
 
     [Header("Simulation Settings")]
     public float detectionRadius = 5f;
     public float moveSpeed = 2f;
 
     [Header("Utility Weights")]
-    public float attractionWeight = 10f; // Scent of Wool
-    public float aversionWeight = 15f;   // Heat/Fire
+    public float attractionWeight = 10f; // Wool
+    public float aversionWeight = 15f;   // Fire
+    public float playerWeight = 8f;      // Wooldrin
+
+    [Header("Roaming Settings")]
+    public float wanderRadius = 3f;
+    public float wanderInterval = 2f;
+    private Vector2 wanderTarget;
+    private float wanderTimer;
 
     private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
+    private bool isEating = false;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
-
-        // Ensure the gravity is zero for top-down physics
         rb.gravityScale = 0;
         rb.freezeRotation = true;
+        rb.drag = 5f; // Helps stop moving when eating
+        PickNewWanderTarget();
     }
 
     void FixedUpdate()
@@ -32,6 +41,68 @@ public class AgentUtilityBrain : MonoBehaviour
         SimulateDecision();
     }
 
+    void SimulateDecision()
+    {
+        Collider2D[] sensedObjects = Physics2D.OverlapCircleAll(rb.position, detectionRadius);
+
+        Vector2 aversionForce = Vector2.zero;
+        Vector2 woolForce = Vector2.zero;
+        Vector2 playerForce = Vector2.zero;
+
+        bool fireFound = false;
+        bool woolFound = false;
+        bool playerFound = false;
+
+        foreach (var obj in sensedObjects)
+        {
+            float dist = Vector2.Distance(rb.position, obj.transform.position);
+            if (dist < 0.2f) continue;
+            Vector2 dir = ((Vector2)obj.transform.position - rb.position).normalized;
+
+            if (obj.CompareTag("Fire")) { aversionForce -= dir * (aversionWeight / dist); fireFound = true; }
+            else if (obj.CompareTag("Wool")) { woolForce += dir * (attractionWeight / dist); woolFound = true; }
+            else if (obj.CompareTag("Player")) { playerForce += dir * (playerWeight / dist); playerFound = true; }
+        }
+
+        // --- HIERARCHY OF NEEDS ---
+        if (fireFound)
+        {
+            isEating = false;
+            spriteRenderer.color = Color.red; // Panic
+            rb.velocity = aversionForce.normalized * (moveSpeed * 1.5f);
+        }
+        else if (isEating)
+        {
+            spriteRenderer.color = Color.green;
+            rb.velocity = Vector2.zero; // Stop to eat
+        }
+        else if (woolFound)
+        {
+            spriteRenderer.color = Color.green;
+            rb.velocity = woolForce.normalized * moveSpeed;
+        }
+        else if (playerFound)
+        {
+            spriteRenderer.color = new Color(1, 0.5f, 0); // Orange: Pursuit
+            rb.velocity = playerForce.normalized * (moveSpeed * 1.2f);
+        }
+        else
+        {
+            spriteRenderer.color = Color.white;
+            Roam();
+        }
+    }
+
+    void Roam()
+    {
+        wanderTimer += Time.fixedDeltaTime;
+        if (wanderTimer >= wanderInterval || Vector2.Distance(rb.position, wanderTarget) < 0.5f) PickNewWanderTarget();
+        rb.velocity = (wanderTarget - rb.position).normalized * (moveSpeed * 0.5f);
+    }
+
+    void PickNewWanderTarget() { wanderTarget = rb.position + Random.insideUnitCircle * wanderRadius; wanderTimer = 0; }
+
+    // --- COLLISION LOGIC (WHERE DAMAGE HAPPENS) ---
     private void OnCollisionStay2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Wool"))
@@ -39,77 +110,26 @@ public class AgentUtilityBrain : MonoBehaviour
             WoolResource wool = collision.gameObject.GetComponent<WoolResource>();
             if (wool != null)
             {
-                // Eat the wool over time
-                wool.GetConsumed(eatStrength * Time.deltaTime);
-
-                // Optionally: Slow down the agent while eating
-                rb.velocity *= 0.5f;
+                isEating = true;
+                wool.TakeBite(biteStrength * Time.deltaTime);
             }
         }
-    }
-
-    void SimulateDecision()
-    {
-        // 1. Sense the environment
-        Collider2D[] sensedObjects = Physics2D.OverlapCircleAll(rb.position, detectionRadius);
-
-        Vector2 aversionForce = Vector2.zero;
-        Vector2 attractionForce = Vector2.zero;
-        int fireCount = 0;
-        int woolCount = 0;
-
-        foreach (var obj in sensedObjects)
+        else if (collision.gameObject.CompareTag("Player"))
         {
-            float distance = Vector2.Distance(rb.position, obj.transform.position);
-
-            // Prevent division by zero or jittering when too close
-            if (distance <= 0.2f) continue;
-
-            Vector2 directionToObj = ((Vector2)obj.transform.position - rb.position).normalized;
-
-            if (obj.CompareTag("Fire"))
+            WooldrinHealth health = collision.gameObject.GetComponent<WooldrinHealth>();
+            if (health != null)
             {
-                // Inverse Square Law: Force = Weight / Distance
-                aversionForce -= directionToObj * (aversionWeight / distance);
-                fireCount++;
-            }
-            else if (obj.CompareTag("Wool"))
-            {
-                attractionForce += directionToObj * (attractionWeight / distance);
-                woolCount++;
-            }
-        }
+                health.TakeDamage(); // This triggers the shrinking
 
-        // 2. State Logic & Visual Feedback
-        // We calculate the state AFTER the loop so the Priority (Fire) always wins
-        if (fireCount > 0)
-        {
-            spriteRenderer.color = Color.red; // Panic State
-            MoveAgent(aversionForce, moveSpeed * 1.5f); // Escape is faster than grazing
-        }
-        else if (woolCount > 0)
-        {
-            spriteRenderer.color = Color.green; // Lure State
-            MoveAgent(attractionForce, moveSpeed);
-        }
-        else
-        {
-            spriteRenderer.color = Color.white; // Neutral State
-            rb.velocity = Vector2.Lerp(rb.velocity, Vector2.zero, 0.1f); // Smooth stop
+                // Push back so it doesn't stay stuck on the player
+                Vector2 pushDir = (transform.position - collision.transform.position).normalized;
+                rb.AddForce(pushDir * 5f, ForceMode2D.Impulse);
+            }
         }
     }
 
-    void MoveAgent(Vector2 force, float speed)
+    private void OnCollisionExit2D(Collision2D collision)
     {
-        // Calculate the next position using physics-friendly MovePosition
-        Vector2 newPos = rb.position + force.normalized * speed * Time.fixedDeltaTime;
-        rb.MovePosition(newPos);
-    }
-
-    // This is for your class presentation—it shows the "Senses" in the Editor
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = new Color(1, 1, 0, 0.2f); // Transparent Yellow
-        Gizmos.DrawWireSphere(transform.position, detectionRadius);
+        if (collision.gameObject.CompareTag("Wool")) isEating = false;
     }
 }
