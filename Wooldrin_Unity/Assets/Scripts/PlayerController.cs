@@ -1,90 +1,127 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
     public float moveSpeed = 5f;
     public Rigidbody2D rb;
+    private SpriteRenderer spriteRenderer;
+    private Animator animator; // For Turning 'to siya
 
-    [Header("Ability References")]
-    public GameObject woolPrefab;
-    public float dropDistance = 0.2f; // Snappier arrival
-
-    [Header("Spirit Connection")]
+    //Spirit and Abilities ni Wooldrin
     public FireSpiritController spirit;
+    public GameObject woolPrefab;
+    public bool canDropWool = true;
+    public float dropDistance = 0.2f;
 
     private Vector2 movement;
     private Vector2 targetLocation;
     private bool isAutoMoving = false;
+    private bool lastFlipState = false;
 
-    [Header("State")]
-    public bool canDropWool = false;
+    void Start()
+    {
+        spriteRenderer = GetComponent<SpriteRenderer>();
+        animator = GetComponent<Animator>();
+    }
 
     void Update()
     {
-        // 1. Manual WASD Input
+        // Get Manual Keyboard Input Only
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
-        // 2. Cancel auto-move if player actually presses a key
-        if (movement.magnitude > 0.1f)
+    // If the player presses any movement key (WASD/Arrows)
+    if (movement.magnitude > 0.1f)
+    {
+        if (isAutoMoving)
         {
-            isAutoMoving = false;
+            isAutoMoving = false; // Stops the sheep from sliding to the lure
+            rb.velocity = Vector2.zero; // Stops any sliding momentum
+            Debug.Log("Lure placement cancelled.");
         }
+    }
 
-        // 3. LEFT CLICK: Drop Wool
-        if (Input.GetMouseButtonDown(0) && canDropWool)
+        //LEFT CLICK: Drop Wool
+    if (Input.GetMouseButtonDown(0) && canDropWool)
         {
-            // Fix the Z-offset for 2D screens
             Vector3 mousePos = Input.mousePosition;
             mousePos.z = -Camera.main.transform.position.z;
-
-            Vector3 worldPoint = Camera.main.ScreenToWorldPoint(mousePos);
-            targetLocation = new Vector2(worldPoint.x, worldPoint.y);
-
+            targetLocation = Camera.main.ScreenToWorldPoint(mousePos);
             isAutoMoving = true;
-
-            // Visual guide in Scene View
-            Debug.DrawLine(transform.position, targetLocation, Color.white, 1f);
         }
 
-        // 4. RIGHT CLICK: Command Spirit
-        if (Input.GetMouseButtonDown(1))
+        // RIGHT CLICK: Command Spirit to Attack
+    if (Input.GetMouseButtonDown(1)) // 1 is Right Click
+    {
+        if (spirit != null)
         {
-            if (spirit != null)
-            {
-                Vector3 fireTarget = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                fireTarget.z = 0;
-                spirit.StartFireAction(fireTarget);
-            }
+            // Convert mouse position to world position
+            Vector3 fireTarget = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            fireTarget.z = 0; // Ensure it stays on the 2D plane
+            
+            // Send the command to the FireSpiritController
+            spirit.StartFireAction(fireTarget);
+        }
+    }
+
+        // Update Animator and Flipping
+        UpdateAnimation();
+    }
+
+    void UpdateAnimation()
+    {
+        // We use the raw movement vector for direction
+        Vector2 currentDir = isAutoMoving ? (targetLocation - (Vector2)transform.position).normalized : movement.normalized;
+
+        // 1. Send values to Animator (using Abs for X to stay on "Side" view)
+        animator.SetFloat("MoveX", Mathf.Abs(movement.x)); 
+        animator.SetFloat("MoveY", movement.y);
+
+        // 2. STICKY FLIP: Only change flipX if moving left or right
+        if (Mathf.Abs(movement.x) > 0.1f)
+        {
+            bool shouldFlip = (movement.x < -0.1f);
+            spriteRenderer.flipX = shouldFlip;
+            lastFlipState = shouldFlip;
+        }
+        else if (Mathf.Abs(movement.y) > 0.1f)
+        {
+            // Keep looking the same way horizontally even when walking Up/Down
+            spriteRenderer.flipX = lastFlipState;
         }
     }
 
     void FixedUpdate()
     {
+
         if (isAutoMoving)
         {
-            float distance = Vector2.Distance(rb.position, targetLocation);
+            // 1. Calculate the direction from Wooldrin to the target
+            Vector2 directionToTarget = (targetLocation - rb.position).normalized;
 
-            if (distance > dropDistance)
+            // 2. Define a "Stop Point" that is 0.5 units away from the actual click
+            // Change 0.5f to a higher number if you want him to stay further away
+            Vector2 stopPoint = targetLocation - (directionToTarget * 0.10f);
+
+            float distanceToStop = Vector2.Distance(rb.position, stopPoint);
+
+            if (distanceToStop > 0.2f)
             {
-                Vector2 newPos = Vector2.MoveTowards(rb.position, targetLocation, moveSpeed * Time.fixedDeltaTime);
-                rb.MovePosition(newPos);
+                // Move toward the STOP point, not the wool itself
+                rb.MovePosition(Vector2.MoveTowards(rb.position, stopPoint, moveSpeed * Time.fixedDeltaTime));
             }
             else
             {
-                // FIX: Spawn the wool at the TARGET, not at Wooldrin's feet
-                // This prevents the physics engine from "shoving" Wooldrin away
+                // ARRIVED at the safe distance: Now drop the wool at the original targetLocation
                 Instantiate(woolPrefab, targetLocation, Quaternion.identity);
-
+                
                 isAutoMoving = false;
-                rb.velocity = Vector2.zero;
+                rb.velocity = Vector2.zero; 
             }
         }
         else
         {
-            // Manual Movement
+            // Normal Manual Movement
             rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
         }
     }
