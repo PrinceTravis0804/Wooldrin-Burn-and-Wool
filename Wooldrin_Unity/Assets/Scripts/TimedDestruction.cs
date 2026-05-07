@@ -1,36 +1,34 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-public class TimedDestruction : MonoBehaviour
+public class TimedDestroy : MonoBehaviour
 {
+    [Tooltip("How many seconds the fire stays on the ground before vanishing.")]
     public float lifetime = 5f;
-    private float timer;
+
+    [Header("Optional Fade Out")]
+    public bool fadeOut = true;
     private SpriteRenderer spriteRenderer;
-    private Color originalColor;
+    private float timer;
 
     void Start()
     {
-        timer = lifetime;
         spriteRenderer = GetComponent<SpriteRenderer>();
-        if (spriteRenderer != null)
-        {
-            originalColor = spriteRenderer.color;
-        }
+        timer = lifetime;
     }
 
     void Update()
     {
         timer -= Time.deltaTime;
 
-        // Visual Feedback: Fade out as the timer runs out
-        if (spriteRenderer != null)
+        if (fadeOut && spriteRenderer != null)
         {
-            float alpha = timer / lifetime;
-            spriteRenderer.color = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
+            // Gradually lower alpha as it nears death
+            Color c = spriteRenderer.color;
+            // Fades out linearly over the total lifetime
+            c.a = Mathf.Clamp01(timer / lifetime);
+            spriteRenderer.color = c;
         }
 
-        // Remove from simulation when time is up
         if (timer <= 0)
         {
             Destroy(gameObject);

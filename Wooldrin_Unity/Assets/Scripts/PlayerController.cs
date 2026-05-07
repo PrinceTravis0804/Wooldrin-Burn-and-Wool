@@ -2,16 +2,21 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Movement Settings")]
     public float moveSpeed = 5f;
+    [Tooltip("How much control you have while staggering from a hit (0 = none, 1 = full)")]
+    public float controlDuringHit = 0.2f;
+
     public Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
-    private Animator animator; // For Turning 'to siya
+    private Animator animator;
+    private WooldrinHealth health; // Reference to our health script
 
-    //Spirit and Abilities ni Wooldrin
+    [Header("Spirit and Abilities")]
     public FireSpiritController spirit;
     public GameObject woolPrefab;
     public bool canDropWool = true;
-    public float dropDistance = 0.2f;
+    public float dropDistance = 0.10f;
 
     private Vector2 movement;
     private Vector2 targetLocation;
@@ -22,27 +27,33 @@ public class PlayerController : MonoBehaviour
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
         animator = GetComponent<Animator>();
+        health = GetComponent<WooldrinHealth>();
+
+        // IMPORTANT for Physics: Set high drag so he doesn't slide forever like on ice
+        if (rb != null)
+        {
+            rb.drag = 5f;
+            rb.gravityScale = 0;
+            rb.freezeRotation = true;
+        }
     }
 
     void Update()
     {
-        // Get Manual Keyboard Input Only
+        // 1. Get Manual Keyboard Input
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
-    // If the player presses any movement key (WASD/Arrows)
-    if (movement.magnitude > 0.1f)
-    {
-        if (isAutoMoving)
+        // Cancel auto-move if player touches WASD
+        if (movement.magnitude > 0.1f && isAutoMoving)
         {
-            isAutoMoving = false; // Stops the sheep from sliding to the lure
-            rb.velocity = Vector2.zero; // Stops any sliding momentum
+            isAutoMoving = false;
+            if (rb != null) rb.velocity = Vector2.zero;
             Debug.Log("Lure placement cancelled.");
         }
-    }
 
-        //LEFT CLICK: Drop Wool
-    if (Input.GetMouseButtonDown(0) && canDropWool)
+        // LEFT CLICK: Drop Wool
+        if (Input.GetMouseButtonDown(0) && canDropWool)
         {
             Vector3 mousePos = Input.mousePosition;
             mousePos.z = -Camera.main.transform.position.z;
@@ -50,34 +61,30 @@ public class PlayerController : MonoBehaviour
             isAutoMoving = true;
         }
 
-        // RIGHT CLICK: Command Spirit to Attack
-    if (Input.GetMouseButtonDown(1)) // 1 is Right Click
-    {
-        if (spirit != null)
+        // RIGHT CLICK: Command Spirit
+        if (Input.GetMouseButtonDown(1))
         {
-            // Convert mouse position to world position
-            Vector3 fireTarget = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            fireTarget.z = 0; // Ensure it stays on the 2D plane
-            
-            // Send the command to the FireSpiritController
-            spirit.StartFireAction(fireTarget);
+            if (spirit != null)
+            {
+                Vector3 fireTarget = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                fireTarget.z = 0;
+                spirit.StartFireAction(fireTarget);
+            }
         }
-    }
 
-        // Update Animator and Flipping
         UpdateAnimation();
     }
 
     void UpdateAnimation()
     {
-        // We use the raw movement vector for direction
-        Vector2 currentDir = isAutoMoving ? (targetLocation - (Vector2)transform.position).normalized : movement.normalized;
+        if (animator == null) return;
 
-        // 1. Send values to Animator (using Abs for X to stay on "Side" view)
-        animator.SetFloat("MoveX", Mathf.Abs(movement.x)); 
+        // Use manual movement for animation parameters
+        animator.SetFloat("MoveX", Mathf.Abs(movement.x));
         animator.SetFloat("MoveY", movement.y);
+        animator.SetFloat("speed", isAutoMoving ? 1f : movement.sqrMagnitude);
 
-        // 2. STICKY FLIP: Only change flipX if moving left or right
+        // Sticky Flip logic
         if (Mathf.Abs(movement.x) > 0.1f)
         {
             bool shouldFlip = (movement.x < -0.1f);
@@ -86,43 +93,51 @@ public class PlayerController : MonoBehaviour
         }
         else if (Mathf.Abs(movement.y) > 0.1f)
         {
-            // Keep looking the same way horizontally even when walking Up/Down
             spriteRenderer.flipX = lastFlipState;
         }
     }
 
     void FixedUpdate()
     {
+        if (rb == null) return;
+
+        // PHYSICS FIX: Determine the speed based on health state
+        float currentSpeed = moveSpeed;
+
+        // Check if Wooldrin is currently staggering from a hit
+        if (health != null && health.IsInvulnerable)
+        {
+            currentSpeed *= controlDuringHit;
+        }
 
         if (isAutoMoving)
         {
-            // 1. Calculate the direction from Wooldrin to the target
             Vector2 directionToTarget = (targetLocation - rb.position).normalized;
-
-            // 2. Define a "Stop Point" that is 0.5 units away from the actual click
-            // Change 0.5f to a higher number if you want him to stay further away
-            Vector2 stopPoint = targetLocation - (directionToTarget * 0.10f);
-
+            Vector2 stopPoint = targetLocation - (directionToTarget * dropDistance);
             float distanceToStop = Vector2.Distance(rb.position, stopPoint);
 
-            if (distanceToStop > 0.2f)
+            if (distanceToStop > 0.1f)
             {
-                // Move toward the STOP point, not the wool itself
-                rb.MovePosition(Vector2.MoveTowards(rb.position, stopPoint, moveSpeed * Time.fixedDeltaTime));
+                rb.velocity = directionToTarget * currentSpeed;
             }
             else
             {
-                // ARRIVED at the safe distance: Now drop the wool at the original targetLocation
                 Instantiate(woolPrefab, targetLocation, Quaternion.identity);
-                
                 isAutoMoving = false;
-                rb.velocity = Vector2.zero; 
+                rb.velocity = Vector2.zero;
             }
         }
         else
         {
-            // Normal Manual Movement
-            rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
+            // PHYSICAL MOVEMENT: Instead of MovePosition, we set velocity.
+            // This allows AddForce (Knockback) from the enemy script to actually work.
+            Vector2 targetVelocity = movement.normalized * currentSpeed;
+
+            if (movement.magnitude > 0.1f)
+            {
+                rb.velocity = Vector2.Lerp(rb.velocity, targetVelocity, 0.2f);
+            }
+            // If no input, let 'Drag' handle the stopping smoothly
         }
     }
 }

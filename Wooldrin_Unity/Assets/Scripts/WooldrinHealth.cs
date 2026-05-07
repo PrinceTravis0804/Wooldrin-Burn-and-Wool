@@ -3,53 +3,84 @@ using UnityEngine.SceneManagement;
 
 public class WooldrinHealth : MonoBehaviour
 {
+    [Header("Wool Layer Settings")]
     public int maxLayers = 3;
-    private int currentLayers;
-    private Vector3 originalScale;
+    public int currentLayers;
+    public float minScalePercent = 0.4f;
 
-    [Header("Invincibility Settings")]
-    public float damageCooldown = 1.5f; // Seconds of safety after getting hit
-    private float lastDamageTime;
+    [Header("Invulnerability Settings")]
+    public float damageCooldown = 1.5f;
+    public Color damageColor = Color.red;
+
+    private float lastDamageTime = -100f;
+    private Vector3 originalScale;
+    private SpriteRenderer spriteRenderer;
+    private Color originalColor;
+
+    // This property allows PlayerController to check if we are in hit-stun
+    public bool IsInvulnerable => Time.time < lastDamageTime + damageCooldown;
 
     void Start()
     {
         currentLayers = maxLayers;
         originalScale = transform.localScale;
+        spriteRenderer = GetComponent<SpriteRenderer>();
+
+        if (spriteRenderer != null)
+        {
+            originalColor = spriteRenderer.color;
+        }
     }
 
-    public void TakeDamage()
+    void Update()
+    {
+        if (spriteRenderer == null) return;
+
+        // Visual feedback for being hit (Flickering)
+        if (IsInvulnerable)
+        {
+            float flicker = Mathf.Sin(Time.time * 25f);
+            spriteRenderer.color = flicker > 0 ? damageColor : originalColor;
+        }
+        else
+        {
+            spriteRenderer.color = originalColor;
+        }
+    }
+
+    public bool TakeDamage()
     {
         // Only take damage if the cooldown has passed
-        if (Time.time > lastDamageTime + damageCooldown)
+        if (!IsInvulnerable)
         {
             currentLayers--;
             lastDamageTime = Time.time;
 
-            Debug.Log("Ouch! Wool layers left: " + currentLayers);
+            Debug.Log("Wooldrin: Layer lost! Remaining: " + currentLayers);
 
-            // Visual feedback: Shrink Wooldrin
-            float t = (float)currentLayers / maxLayers;
-            transform.localScale = originalScale * Mathf.Max(t, 0.4f);
-
-            // Optional: Make Wooldrin flash red when hit
-            StartCoroutine(FlashRed());
+            UpdateScale();
 
             if (currentLayers <= 0)
             {
                 GameOver();
             }
+
+            return true; // Damage dealt successfully
         }
+
+        return false; // Damage ignored
     }
 
-    System.Collections.IEnumerator FlashRed()
+    private void UpdateScale()
     {
-        GetComponent<SpriteRenderer>().color = Color.red;
-        yield return new WaitForSeconds(0.1f);
-        GetComponent<SpriteRenderer>().color = Color.white;
+        float t = (float)currentLayers / maxLayers;
+        float scaleFactor = Mathf.Max(t, minScalePercent);
+        transform.localScale = originalScale * scaleFactor;
     }
 
     void GameOver()
     {
+        Debug.Log("Game Over! Wooldrin is out of wool.");
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }

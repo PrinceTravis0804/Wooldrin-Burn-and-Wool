@@ -1,145 +1,146 @@
 using UnityEngine;
+using Cinemachine;
 
 [RequireComponent(typeof(Rigidbody2D))]
 public class AgentUtilityBrain : MonoBehaviour
 {
-    [Header("Eating & Damage Logic")]
-    public float biteStrength = 20f;   // The variable the error was missing!
-    public float damageCooldown = 1.0f; // Prevent instant death
-    public float attackRange = 1.8f;    // INCREASED: Buffer zone for pushback
-    private float lastDamageTime;       // Timer to track cooldown
+    [Header("Combat & Consumption")]
+    public float biteStrength = 25f; // Damage per second to wool or player
+    public float damageCooldown = 1.0f;
+    public float attackRange = 1.6f;
+    public float playerKnockbackForce = 12f;
+    private float lastDamageTime;
 
-    [Header("Simulation Settings")]
-    public float detectionRadius = 5f;
-    public float moveSpeed = 2f;
+    [Header("Cinemachine")]
+    private CinemachineImpulseSource impulseSource;
+
+    [Header("Senses")]
+    public float detectionRadius = 6f; // Slightly increased for better detection
+    public float moveSpeed = 2.5f;
+    public LayerMask wallLayer;
 
     [Header("Utility Weights")]
-    public float attractionWeight = 10f; // Wool
-    public float aversionWeight = 15f;   // Fire
+    public float attractionWeight = 15f; // Wool (Slightly higher than player to prioritize food)
+    public float aversionWeight = 20f;    // Fire
     public float playerWeight = 8f;      // Wooldrin
 
-    [Header("Roaming Settings")]
+    [Header("Roaming")]
     public float wanderRadius = 3f;
-    public float wanderInterval = 2f;
+    public float wanderInterval = 3f;
     private Vector2 wanderTarget;
     private float wanderTimer;
 
     private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
-    private Animator anim; // Para sa animations ng TestMOB
+    private Animator anim;
     private bool isEating = false;
-    private Transform currentWoolTarget; // Track the specific wool being eaten
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
-        anim = GetComponent<Animator>(); // Automatically gets the Animator component
-        
+        anim = GetComponent<Animator>();
+        impulseSource = GetComponent<CinemachineImpulseSource>();
+
         rb.gravityScale = 0;
         rb.freezeRotation = true;
-        rb.drag = 5f; // Helps stop moving when eating
+        rb.drag = 5f;
+
         PickNewWanderTarget();
     }
 
     void Update()
     {
-        // Handle Sprite Flipping based on movement direction
+        // Sprite Flipping
         if (rb.velocity.x > 0.1f) spriteRenderer.flipX = false;
         else if (rb.velocity.x < -0.1f) spriteRenderer.flipX = true;
 
-        // Update Walk Animation state
-        bool isMoving = rb.velocity.magnitude > 0.1f;
-        anim.SetBool("isWalking", isMoving);
+        if (anim != null)
+        {
+            anim.SetBool("isWalking", rb.velocity.magnitude > 0.1f);
+        }
+
+        // Color feedback for states
+        if (isEating) spriteRenderer.color = Color.green;
+        else if (rb.velocity.magnitude > moveSpeed) spriteRenderer.color = Color.red; // Panicking
+        else spriteRenderer.color = Color.white;
     }
 
-    void FixedUpdate()
-    {
-        SimulateDecision();
-    }
+    void FixedUpdate() => SimulateDecision();
 
     void SimulateDecision()
     {
         Collider2D[] sensedObjects = Physics2D.OverlapCircleAll(rb.position, detectionRadius);
-
         Vector2 aversionForce = Vector2.zero;
-        Vector2 woolForce = Vector2.zero;
-        Vector2 playerForce = Vector2.zero;
-
+        Vector2 attractionForce = Vector2.zero;
         bool fireFound = false;
-        bool woolFound = false;
-        bool playerFound = false;
-
-        // Track the closest target for the Attack Animation
         GameObject closestTarget = null;
         float minTargetDist = Mathf.Infinity;
 
         foreach (var obj in sensedObjects)
         {
             float dist = Vector2.Distance(rb.position, obj.transform.position);
-            if (dist < 0.2f) continue;
+            if (dist < 0.1f) continue;
+
+            // Line of Sight check
+            RaycastHit2D wallCheck = Physics2D.Linecast(rb.position, obj.transform.position, wallLayer);
+            if (wallCheck.collider != null && wallCheck.transform != obj.transform) continue;
+
             Vector2 dir = ((Vector2)obj.transform.position - rb.position).normalized;
 
-            if (obj.CompareTag("Fire")) { aversionForce -= dir * (aversionWeight / dist); fireFound = true; }
-            else if (obj.CompareTag("Wool")) 
-            { 
-                woolForce += dir * (attractionWeight / dist); 
-                woolFound = true; 
-                if (dist < minTargetDist) { minTargetDist = dist; closestTarget = obj.gameObject; }
+            if (obj.CompareTag("Fire"))
+            {
+                aversionForce -= dir * (aversionWeight / (dist * dist));
+                fireFound = true;
             }
-            else if (obj.CompareTag("Player")) 
-            { 
-                playerForce += dir * (playerWeight / dist); 
-                playerFound = true; 
-                if (dist < minTargetDist) { minTargetDist = dist; closestTarget = obj.gameObject; }
+            else if (obj.CompareTag("Wool") || obj.CompareTag("Player"))
+            {
+                float weight = obj.CompareTag("Wool") ? attractionWeight : playerWeight;
+                attractionForce += dir * (weight / dist);
+
+                if (dist < minTargetDist)
+                {
+                    minTargetDist = dist;
+                    closestTarget = obj.gameObject;
+                }
             }
         }
 
-        // --- ANIMATION LOGIC: Check if close enough to attack ---
-        if (closestTarget != null && minTargetDist <= attackRange && !fireFound)
+        // --- BRAIN OUTPUT ---
+        if (fireFound)
         {
-            anim.SetBool("isAttacking", true);
-            
-            // If we are eating wool, apply a tiny "Lean In" force to keep collision active
-            if (isEating && currentWoolTarget != null)
+            isEating = false;
+            if (anim != null) anim.SetBool("isAttacking", false);
+            rb.velocity = aversionForce.normalized * (moveSpeed * 1.5f);
+        }
+        else if (closestTarget != null && minTargetDist <= attackRange)
+        {
+            // STOP TO EAT/ATTACK
+            rb.velocity = Vector2.zero;
+            if (anim != null) anim.SetBool("isAttacking", true);
+
+            if (closestTarget.CompareTag("Player"))
             {
-                Vector2 biteDir = ((Vector2)currentWoolTarget.position - rb.position).normalized;
-                rb.velocity = biteDir * 0.5f; 
+                isEating = false;
+                HandlePlayerDamage(closestTarget);
             }
-            else
+            else if (closestTarget.CompareTag("Wool"))
             {
-                rb.velocity = Vector2.zero; // Stop moving to play attack animation properly
+                isEating = true;
+                HandleWoolEating(closestTarget);
             }
         }
         else
         {
-            // If the Trigger hasn't forced it to true, set to false
-            anim.SetBool("isAttacking", false);
+            isEating = false;
+            if (anim != null) anim.SetBool("isAttacking", false);
 
-            // --- HIERARCHY OF NEEDS ---
-            if (fireFound)
+            if (attractionForce != Vector2.zero)
             {
-                isEating = false;
-                spriteRenderer.color = Color.red; // Panic
-                rb.velocity = aversionForce.normalized * (moveSpeed * 1.5f);
-            }
-            else if (isEating)
-            {
-                spriteRenderer.color = Color.green;
-            }
-            else if (woolFound)
-            {
-                spriteRenderer.color = Color.green;
-                rb.velocity = woolForce.normalized * moveSpeed;
-            }
-            else if (playerFound)
-            {
-                spriteRenderer.color = new Color(1, 0.5f, 0); // Orange: Pursuit
-                rb.velocity = playerForce.normalized * (moveSpeed * 1.2f);
+                rb.velocity = attractionForce.normalized * moveSpeed;
             }
             else
             {
-                spriteRenderer.color = Color.white;
                 Roam();
             }
         }
@@ -148,53 +149,24 @@ public class AgentUtilityBrain : MonoBehaviour
     void Roam()
     {
         wanderTimer += Time.fixedDeltaTime;
-        if (wanderTimer >= wanderInterval || Vector2.Distance(rb.position, wanderTarget) < 0.5f) PickNewWanderTarget();
+        if (wanderTimer >= wanderInterval || Vector2.Distance(rb.position, wanderTarget) < 0.5f)
+            PickNewWanderTarget();
         rb.velocity = (wanderTarget - rb.position).normalized * (moveSpeed * 0.5f);
     }
 
-    void PickNewWanderTarget() { wanderTarget = rb.position + Random.insideUnitCircle * wanderRadius; wanderTimer = 0; }
-
-    // --- IMMEDIATE ATTACK LOGIC (REFLEXES) ---
-    private void OnTriggerEnter2D(Collider2D other)
+    void PickNewWanderTarget()
     {
-        // High-speed detection: If the player or wool enters the 'Bite Zone'
-        if (other.CompareTag("Player") || other.CompareTag("Wool"))
-        {
-            anim.SetBool("isAttacking", true);
-            rb.velocity = Vector2.zero; // Stop instantly
-
-            if (other.CompareTag("Player"))
-            {
-                HandlePlayerDamage(other.gameObject);
-            }
-        }
+        wanderTarget = rb.position + Random.insideUnitCircle * wanderRadius;
+        wanderTimer = 0;
     }
 
-    private void OnTriggerExit2D(Collider2D other)
+    private void HandleWoolEating(GameObject woolObj)
     {
-        // If the target leaves the bite zone, stop attacking immediately
-        if (other.CompareTag("Player") || other.CompareTag("Wool"))
+        WoolResource wool = woolObj.GetComponent<WoolResource>();
+        if (wool != null)
         {
-            anim.SetBool("isAttacking", false);
-        }
-    }
-
-    // --- COLLISION LOGIC (WHERE DAMAGE HAPPENS) ---
-    private void OnCollisionStay2D(Collision2D collision)
-    {
-        if (collision.gameObject.CompareTag("Wool"))
-        {
-            WoolResource wool = collision.gameObject.GetComponent<WoolResource>();
-            if (wool != null)
-            {
-                isEating = true;
-                currentWoolTarget = collision.transform; 
-                wool.TakeBite(biteStrength * Time.deltaTime);
-            }
-        }
-        else if (collision.gameObject.CompareTag("Player"))
-        {
-            HandlePlayerDamage(collision.gameObject);
+            // Damage the wool over time
+            wool.TakeBite(biteStrength * Time.deltaTime);
         }
     }
 
@@ -202,25 +174,29 @@ public class AgentUtilityBrain : MonoBehaviour
     {
         if (Time.time >= lastDamageTime + damageCooldown)
         {
-            WooldrinHealth health = victim.GetComponent<WooldrinHealth>();
-            if (health != null)
+            WooldrinHealth healthScript = victim.GetComponent<WooldrinHealth>();
+            Rigidbody2D victimRb = victim.GetComponent<Rigidbody2D>();
+
+            if (healthScript != null && healthScript.TakeDamage())
             {
-                health.TakeDamage(); 
                 lastDamageTime = Time.time;
 
-                // REDUCED PUSHBACK: Changing from 5f to 2f helps keep them in range for the next bite
-                Vector2 pushDir = (transform.position - victim.transform.position).normalized;
-                rb.AddForce(pushDir * 2f, ForceMode2D.Impulse);
-            }
-        }
-    }
+                // 1. Knockback
+                if (victimRb != null)
+                {
+                    Vector2 knockbackDir = (victim.transform.position - transform.position).normalized;
+                    victimRb.AddForce(knockbackDir * playerKnockbackForce, ForceMode2D.Impulse);
+                }
 
-    private void OnCollisionExit2D(Collision2D collision)
-    {
-        if (collision.gameObject.CompareTag("Wool")) 
-        {
-            isEating = false;
-            currentWoolTarget = null;
+                // 2. Camera Shake
+                if (CameraShakeManager.instance != null && impulseSource != null)
+                {
+                    CameraShakeManager.instance.CameraShake(impulseSource);
+                }
+
+                // 3. Enemy recoil
+                rb.AddForce(-((Vector2)victim.transform.position - rb.position).normalized * 4f, ForceMode2D.Impulse);
+            }
         }
     }
 }
