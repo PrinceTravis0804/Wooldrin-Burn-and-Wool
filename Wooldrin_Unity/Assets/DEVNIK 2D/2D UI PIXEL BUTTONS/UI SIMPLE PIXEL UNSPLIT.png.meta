@@ -136,13 +136,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: PLAY_BUTTON
+      name: SETTINGS_BUTTON
       rect:
         serializedVersion: 2
-        x: 48
-        y: 1284
-        width: 120
-        height: 124
+        x: 404
+        y: 1286
+        width: 115
+        height: 122
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -774,11 +774,11 @@ TextureImporter:
       PAUSE_BUTTON: -708245964
       PAUSE_BUTTON1: -713559888
       PLAY BAR: -72823007
-      PLAY_BUTTON: 177566260
       PLAY_BUTTON1: -716720451
       SCROLL: 1897795018
       SETTINGS: 614323164
       SETTINGS_1: -1398130153
+      SETTINGS_BUTTON: 177566260
       SET_BAR: 590527004
       SOUND_OFF: -1616128084
       SOUND_OFF2: 1073997449
