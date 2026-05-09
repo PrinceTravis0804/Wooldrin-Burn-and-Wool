@@ -2,8 +2,8 @@ using UnityEngine;
 
 public class TimedDestroy : MonoBehaviour
 {
-    [Tooltip("How many seconds the fire stays on the ground before vanishing.")]
-    public float lifetime = 5f;
+    [Tooltip("How many seconds the object stays before vanishing.")]
+    public float lifetime = 15f;
 
     [Header("Optional Fade Out")]
     public bool fadeOut = true;
@@ -22,10 +22,10 @@ public class TimedDestroy : MonoBehaviour
 
         if (fadeOut && spriteRenderer != null)
         {
-            // Gradually lower alpha as it nears death
             Color c = spriteRenderer.color;
-            // Fades out linearly over the total lifetime
-            c.a = Mathf.Clamp01(timer / lifetime);
+            // Fades out linearly based on the remaining lifetime
+            float alpha = Mathf.Clamp01(timer / lifetime);
+            c.a = alpha;
             spriteRenderer.color = c;
         }
 

@@ -186,6 +186,19 @@ public class AgentUtilityBrain : MonoBehaviour
             isEating = true;
             collision.gameObject.GetComponent<WoolResource>()?.TakeBite(biteStrength * Time.deltaTime);
         }
+        // FIXED: Added explicit damage call for the player
+        else if (collision.gameObject.CompareTag("Player"))
+        {
+            WooldrinHealth health = collision.gameObject.GetComponent<WooldrinHealth>();
+            if (health != null)
+            {
+                // Call damage logic
+                health.TakeDamage(transform.position);
+
+                // Briefly stop the slime's velocity so it doesn't just "push" the player
+                rb.velocity = Vector2.zero;
+            }
+        }
     }
 
     private void OnCollisionExit2D(Collision2D collision)
