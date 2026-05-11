@@ -153,10 +153,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveSpeed: 7
   rb: {fileID: 1935553638084389879}
+  knockbackForce: 4
+  knockbackDuration: 0.2
   woolPrefab: {fileID: 2953346976562462036, guid: 02622d49c900db44a8757a4352266dcd, type: 3}
   dropArrivalDistance: 0.3
-  kickForce: 12
-  spirit: {fileID: 0}
+  kickForce: 100
+  spirit: {fileID: 196745943509229604, guid: 679479f90ba5f544f920ab5cb371f61f, type: 3}
   canDropWool: 1
   hasActiveWool: 0
 --- !u!114 &4543627251431950597
@@ -173,7 +175,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   woolLayers: 3
   invincibilityTime: 2
-  gameOverPrefab: {fileID: 2292674442432547041, guid: 1885e3ad07e16cb4da31df67eff25349, type: 3}
+  knockbackDuration: 0.2
 --- !u!50 &1935553638084389879
 Rigidbody2D:
   serializedVersion: 4

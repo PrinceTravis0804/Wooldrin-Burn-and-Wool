@@ -100,18 +100,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e02aaadc6632e24fa4e9e4b52f98fcf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 2
-  fearSpeedMultiplier: 2.5
-  detectionRadius: 4
-  biteStrength: 20
-  attractionWeight: 10
-  aversionWeight: 15
-  playerWeight: 8
-  wanderRadius: 3
-  wanderTimer: 3
-  waitProbability: 0.5
-  minWaitTime: 1
-  maxWaitTime: 3
+  baseSpeed: 3
+  panicSpeed: 5.5
+  roamRadius: 20
+  huntRange: 7
+  woolDetectionRange: 8
+  biteStrength: 10
+  attackReboundTime: 0.5
+  knockbackPower: 7
 --- !u!58 &6827560349876081555
 CircleCollider2D:
   m_ObjectHideFlags: 0

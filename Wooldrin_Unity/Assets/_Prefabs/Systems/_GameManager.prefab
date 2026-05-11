@@ -45,7 +45,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   wooldrinPrefab: {fileID: 1452295825226136492, guid: 7176717d0da1a204c939dcb9e049afc9, type: 3}
+  gameOverPrefab: {fileID: 2292674442432547041, guid: 1885e3ad07e16cb4da31df67eff25349, type: 3}
   fireSpiritPrefab: {fileID: 8251433645419499233, guid: 679479f90ba5f544f920ab5cb371f61f, type: 3}
-  isFireSpiritRescued: 1
+  isFireSpiritRescued: 0
   rescuedFamilyMembers: []
+  firstLevelName: Level_01_Throat
+  mainMenuName: LandingPage
   currentStageName: 
