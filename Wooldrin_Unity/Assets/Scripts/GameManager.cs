@@ -54,13 +54,14 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
         currentStageName = scene.name;
 
+        // If we are in the main menu, we must reset the game state entirely
         if (scene.name == mainMenuName)
         {
+            ResetGameState();
             DestroyPersistentObjects();
             return;
         }
 
-        // Immediate cleanup of non-persistent duplicates
         CleanupDuplicates();
     }
 
@@ -71,14 +72,11 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator ExecuteSpawn(Vector3 targetPos)
     {
-        // Wait 2 frames for scene initialization to be fully complete
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
 
-        // 1. Find or Spawn Wooldrin
         GameObject player = GameObject.FindGameObjectWithTag("Player");
 
-        // If player exists but is not persistent (e.g. placed in scene), mark it
         if (player != null && player.scene.name != "DontDestroyOnLoad")
         {
             DontDestroyOnLoad(player);
@@ -86,7 +84,6 @@ public class GameManager : MonoBehaviour
 
         if (player == null && wooldrinPrefab != null)
         {
-            Debug.Log("GameManager: Player missing in scene, spawning from prefab.");
             player = Instantiate(wooldrinPrefab);
             player.name = "Wooldrin";
             player.tag = "Player";
@@ -95,7 +92,6 @@ public class GameManager : MonoBehaviour
 
         if (player != null)
         {
-            // Reset physical state to prevent carrying over velocity from previous level
             Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
             if (rb != null)
             {
@@ -104,30 +100,20 @@ public class GameManager : MonoBehaviour
             }
 
             player.transform.position = new Vector3(targetPos.x, targetPos.y, 0f);
-
-            // 2. Handle Fire Spirit 
             HandleFireSpiritSpawn(player.transform);
-
-            // 3. Update Camera
             UpdateCameraTarget(player.transform);
-
-            Debug.Log($"GameManager: Successfully initialized stage: {currentStageName}");
         }
     }
 
     private void HandleFireSpiritSpawn(Transform playerTransform)
     {
-        // Only spawn or manage spirit if it has been rescued
         if (!isFireSpiritRescued) return;
 
-        // Look for existing spirit in the entire game (including DontDestroyOnLoad)
         FireSpiritController spiritScript = FindObjectOfType<FireSpiritController>();
         GameObject spirit = spiritScript != null ? spiritScript.gameObject : null;
 
-        // If no spirit found, spawn the prefab beside the player
         if (spirit == null && fireSpiritPrefab != null)
         {
-            Debug.Log("GameManager: Rescued Spirit missing, spawning beside Wooldrin.");
             Vector3 spawnPos = playerTransform.position + spiritFollowOffset;
             spirit = Instantiate(fireSpiritPrefab, spawnPos, Quaternion.identity);
             spirit.name = "FireSpirit";
@@ -136,17 +122,14 @@ public class GameManager : MonoBehaviour
 
         if (spirit != null)
         {
-            // Ensure the spirit is persistent and unparented from any scene-specific objects
             spirit.transform.SetParent(null);
             DontDestroyOnLoad(spirit);
 
             if (spiritScript != null)
             {
-                // Re-link the spirit to follow the current level's Wooldrin instance
                 spiritScript.player = playerTransform;
                 spiritScript.isReady = true;
 
-                // If it was already persistent, snap its position to stay close
                 if (Vector3.Distance(spirit.transform.position, playerTransform.position) > 10f)
                 {
                     spirit.transform.position = playerTransform.position + spiritFollowOffset;
@@ -161,41 +144,32 @@ public class GameManager : MonoBehaviour
         if (vcam != null)
         {
             vcam.Follow = playerTransform;
-            // Notify Cinemachine that the target has "warped" to avoid a long camera pan
             vcam.OnTargetObjectWarped(playerTransform, playerTransform.position - vcam.transform.position);
-            Debug.Log("GameManager: Camera re-linked to Wooldrin.");
         }
     }
 
     private void CleanupDuplicates()
     {
-        // Clean up duplicate players (keep the persistent one)
         GameObject[] players = GameObject.FindGameObjectsWithTag("Player");
-        if (players.Length > 1)
+        foreach (GameObject p in players)
         {
-            foreach (GameObject p in players)
-            {
-                if (p.scene.name != "DontDestroyOnLoad")
-                {
-                    Debug.Log("GameManager: Cleaning up scene-based Wooldrin duplicate.");
-                    Destroy(p);
-                }
-            }
+            if (p.scene.name != "DontDestroyOnLoad" && players.Length > 1)
+                Destroy(p);
         }
 
-        // Clean up duplicate spirits
         FireSpiritController[] spirits = FindObjectsOfType<FireSpiritController>();
-        if (spirits.Length > 1)
+        foreach (var s in spirits)
         {
-            foreach (var s in spirits)
-            {
-                if (s.gameObject.scene.name != "DontDestroyOnLoad")
-                {
-                    Debug.Log("GameManager: Cleaning up scene-based FireSpirit duplicate.");
-                    Destroy(s.gameObject);
-                }
-            }
+            if (s.gameObject.scene.name != "DontDestroyOnLoad" && spirits.Length > 1)
+                Destroy(s.gameObject);
         }
+    }
+
+    private void ResetGameState()
+    {
+        rescuedFamilyMembers.Clear();
+        isFireSpiritRescued = false;
+        Debug.Log("GameManager: State Reset (Fire Spirit is now caged/unrescued).");
     }
 
     private void DestroyPersistentObjects()
@@ -211,29 +185,30 @@ public class GameManager : MonoBehaviour
 
     public void LoadFirstLevel()
     {
+        ResetGameState();
         Time.timeScale = 1f;
-        rescuedFamilyMembers.Clear();
-        isFireSpiritRescued = false;
         SceneManager.LoadScene(firstLevelName);
     }
 
     public void LoadNextLevel()
     {
-        // Advance to the next level in the build sequence
         int nextIndex = SceneManager.GetActiveScene().buildIndex + 1;
         if (nextIndex < SceneManager.sceneCountInBuildSettings)
-        {
             SceneManager.LoadScene(nextIndex);
-        }
         else
-        {
             WinGame();
-        }
     }
 
     public void RestartLevel()
     {
-        // Reset Wooldrin's health/state before reloading the scene
+        // If we restart the first level, we reset the spirit state
+        if (SceneManager.GetActiveScene().name == firstLevelName)
+        {
+            ResetGameState();
+            FireSpiritController spirit = FindObjectOfType<FireSpiritController>();
+            if (spirit != null) Destroy(spirit.gameObject);
+        }
+
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
@@ -245,7 +220,10 @@ public class GameManager : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
-    public void GoToMainMenu() { SceneManager.LoadScene(mainMenuName); }
+    public void GoToMainMenu()
+    {
+        SceneManager.LoadScene(mainMenuName);
+    }
 
     public void GameOver()
     {
@@ -262,11 +240,9 @@ public class GameManager : MonoBehaviour
         {
             Time.timeScale = 0f;
             Instantiate(gameWinPrefab);
-            Debug.Log("GameManager: You escaped the Dragon!");
         }
         else
         {
-            Debug.Log("GameManager: Ending reached, returning to menu.");
             GoToMainMenu();
         }
     }
@@ -279,8 +255,6 @@ public class GameManager : MonoBehaviour
     public void SetFireSpiritRescued()
     {
         isFireSpiritRescued = true;
-        Debug.Log("<color=yellow>GameManager:</color> Fire Spirit marked as RESCUED. Spawning follow-system.");
-
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null) HandleFireSpiritSpawn(player.transform);
     }
