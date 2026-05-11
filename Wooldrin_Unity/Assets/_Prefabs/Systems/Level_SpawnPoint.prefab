@@ -9,8 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4096627992297981075}
-  - component: {fileID: 6839601123702744405}
   - component: {fileID: 7329578035937562942}
+  - component: {fileID: 4043867653718457863}
   m_Layer: 0
   m_Name: Level_SpawnPoint
   m_TagString: Untagged
@@ -33,20 +33,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6839601123702744405
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7439669066358090385}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d7f65134e8df2d946aa0300751ba6549, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rescuedFamilyMembers: []
-  currentStageName: 
 --- !u!212 &7329578035937562942
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -99,3 +85,15 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!114 &4043867653718457863
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7439669066358090385}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 938916259f173b2458fdfdee4f110167, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
