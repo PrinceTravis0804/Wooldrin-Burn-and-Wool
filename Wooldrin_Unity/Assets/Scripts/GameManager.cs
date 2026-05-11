@@ -4,7 +4,6 @@ using System.Collections.Generic;
 
 public class GameManager : MonoBehaviour
 {
-    // Singleton instance to access from any script via GameManager.Instance
     public static GameManager Instance { get; private set; }
 
     [Header("Progression Data")]
@@ -15,7 +14,6 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
-        // Ensure only one GameManager exists across all levels
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
@@ -27,7 +25,6 @@ public class GameManager : MonoBehaviour
 
     private void OnEnable()
     {
-        // Listen for scene changes to handle spawning automatically
         SceneManager.sceneLoaded += OnLevelFinishedLoading;
     }
 
@@ -36,9 +33,11 @@ public class GameManager : MonoBehaviour
         SceneManager.sceneLoaded -= OnLevelFinishedLoading;
     }
 
-    // Called automatically by Unity whenever a new scene finishes loading
     void OnLevelFinishedLoading(Scene scene, LoadSceneMode mode)
     {
+        // Safety: Always ensure time is running when a new scene loads
+        Time.timeScale = 1f; 
+        
         currentStageName = scene.name;
         PositionPlayerAtSpawn();
     }
@@ -54,7 +53,7 @@ public class GameManager : MonoBehaviour
 
     public void LoadNextLevel()
     {
-        // Logic: Move to the next index in the Build Settings (File > Build Settings)
+        Time.timeScale = 1f; // Unpause before loading next level
         int nextIndex = SceneManager.GetActiveScene().buildIndex + 1;
 
         if (nextIndex < SceneManager.sceneCountInBuildSettings)
@@ -63,18 +62,26 @@ public class GameManager : MonoBehaviour
         }
         else
         {
-            Debug.Log("GameManager: No more levels found. You've reached the end of the Dragon!");
+            Debug.Log("GameManager: No more levels found.");
         }
     }
 
     public void RestartLevel()
     {
+        // CRITICAL FIX: Set time back to normal before reloading
+        Time.timeScale = 1f; 
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    // NEW: Function for your Main Menu button
+    public void GoToMainMenu()
+    {
+        Time.timeScale = 1f; 
+        SceneManager.LoadScene("LandingPage"); // Make sure this matches your scene name
     }
 
     private void PositionPlayerAtSpawn()
     {
-        // This looks for the empty object you created in the hierarchy
         GameObject spawnPoint = GameObject.Find("Level_SpawnPoint");
         GameObject player = GameObject.FindGameObjectWithTag("Player");
 
@@ -82,10 +89,6 @@ public class GameManager : MonoBehaviour
         {
             player.transform.position = spawnPoint.transform.position;
             Debug.Log($"GameManager: Successfully spawned Wooldrin at {spawnPoint.name}");
-        }
-        else if (player != null)
-        {
-            Debug.LogWarning("GameManager: No 'Level_SpawnPoint' found in this scene! Wooldrin stayed at his default position.");
         }
     }
 }
