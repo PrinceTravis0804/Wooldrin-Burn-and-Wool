@@ -9,9 +9,15 @@ EditorBuildSettings:
     path: Assets/Scenes/LandingPage.unity
     guid: 3aa615a2fd031f047b7e59ccb3382fc9
   - enabled: 1
+    path: Assets/Level_01_Throat.unity
+    guid: 09089f8c679453b438f008ef31182ce5
+  - enabled: 1
+    path: Assets/Level_02_Stomach.unity
+    guid: db76ef10e4d653d4daa2409c14b31699
+  - enabled: 0
     path: Assets/Scenes/Level0.unity
     guid: 2fa3bc8c1da26f4468957431d44aae14
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
   m_configObjects: {}
