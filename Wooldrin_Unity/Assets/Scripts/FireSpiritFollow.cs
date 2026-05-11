@@ -2,274 +2,254 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-// Final Fire Spirit Logic for the Dragon's Throat:
-// - Optimized for tight corridors: Reduced collision buffers.
-// - Orthogonal Pathfinding: Removed diagonals to prevent clipping through wall corners.
-// - Right Click ability is DISABLED if the spirit is in 'Waiting' state.
-// - Spirit must be retrieved by Wooldrin (get close) to re-enable the ability.
-// - FIX: Spirit now ignores the player's collider during its dash and pathfinding checks.
 public class FireSpiritController : MonoBehaviour
 {
+    [Header("Speeds")]
+    public float followSpeed = 6f;
+    public float actionSpeed = 10f;
+    public float returnSpeed = 15f;
+
     [Header("Follow Settings")]
     public Transform player;
     public Vector3 followOffset = new Vector3(-0.7f, 0.7f, 0);
-    public float followSpeed = 10f;
-    public float retrievalDistance = 1.2f;
+    public float lockOnProximity = 1.2f;
 
     [Header("Action Settings")]
-    public float actionSpeed = 12f;
     public GameObject firePrefab;
-    public LayerMask wallLayer;
-    public LayerMask enemyLayer;
-    public float spiritRepelForce = 15f;
 
-    [Header("Pathfinding (BFS)")]
-    [Tooltip("Size of grid nodes. 0.35 provides better precision in narrow gaps.")]
-    public float nodeSpacing = 0.35f;
-    public int maxSearchIterations = 2000;
+    [Header("BFS Pathfinding (Physics-Based)")]
+    public float nodeSize = 0.3f;
+    [Range(100, 5000)]
+    public int searchLimit = 400;
+
+    [Header("Visualization")]
+    public bool showSearchRange = true;
+    public Color gizmoColor = new Color(1, 1, 0, 0.2f);
+
+    [Header("State")]
+    public bool isReady = true;
+    private bool isExecutingAction = false;
+    private bool isReturning = false;
 
     private Animator animator;
-    private bool isExecutingAction = false;
-    private bool isWaitingAtLocation = false;
     private List<Vector3> currentPath = new List<Vector3>();
     private int pathIndex = 0;
-
-    private Vector2 lastMoveDirection = Vector2.down;
+    private Vector2 lastDir;
     private Vector3 lastPosition;
 
     void Start()
     {
-        animator = GetComponentInChildren<Animator>();
-        if (animator == null) animator = GetComponent<Animator>();
-
+        animator = GetComponent<Animator>();
+        if (animator == null) animator = GetComponentInChildren<Animator>();
         lastPosition = transform.position;
-
-        // GHOST FIX: Hide any child sprites that aren't the animated one
-        SpriteRenderer[] childRenderers = GetComponentsInChildren<SpriteRenderer>();
-        foreach (var sr in childRenderers)
-        {
-            if (sr.gameObject != gameObject && sr.GetComponent<Animator>() == null)
-            {
-                sr.enabled = false;
-            }
-        }
+        if (currentPath == null) currentPath = new List<Vector3>();
     }
 
     void Update()
     {
         if (player == null) return;
 
-        float distToPlayer = Vector2.Distance(transform.position, player.position);
+        Vector3 guardTarget = player.position + followOffset;
+        float distToWooldrin = Vector3.Distance(transform.position, player.position);
 
-        // 1. RETRIEVAL LOGIC
-        if (isWaitingAtLocation && distToPlayer < retrievalDistance)
+        if (distToWooldrin < lockOnProximity && !isExecutingAction)
         {
-            isWaitingAtLocation = false;
-            Debug.Log("Spirit Retrieved! Ability Re-enabled.");
+            ResetToReady();
         }
 
-        // 2. INPUT: Right Click (1)
-        if (Input.GetMouseButtonDown(1))
-        {
-            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            mousePos.z = 0;
-            StartFireAction(mousePos);
-        }
-
-        // 3. MOVEMENT LOGIC
-        if (isExecutingAction)
+        if (isExecutingAction || isReturning)
         {
             MoveAlongPath();
-            RepelNearbyEnemies();
         }
-        else if (!isWaitingAtLocation)
+        else
         {
-            HandleLockedFollow();
+            if (HasLineOfSight(transform.position, guardTarget))
+            {
+                float hover = Mathf.Sin(Time.time * 3f) * 0.15f;
+                Vector3 target = guardTarget + new Vector3(0, hover, 0);
+                transform.position = Vector3.MoveTowards(transform.position, target, followSpeed * Time.deltaTime);
+            }
+            else
+            {
+                isReturning = true;
+                currentPath = FindPathBFS(transform.position, guardTarget);
+                pathIndex = 0;
+            }
         }
 
-        UpdateAnimations();
+        UpdateAnims();
     }
 
-    void HandleLockedFollow()
+    public void StartFireAction(Vector3 destination)
     {
-        float hover = Mathf.Sin(Time.time * 2f) * 0.15f;
-        Vector3 targetPos = player.position + followOffset + new Vector3(0, hover, 0);
-        transform.position = Vector3.Lerp(transform.position, targetPos, followSpeed * Time.deltaTime);
+        isReady = false;
+        isReturning = false;
+
+        if (IsPointBlocked(destination))
+        {
+            ResetToReady();
+            return;
+        }
+
+        currentPath = FindPathBFS(transform.position, destination);
+
+        if (currentPath == null || currentPath.Count == 0)
+        {
+            ResetToReady();
+            return;
+        }
+
+        isExecutingAction = true;
+        pathIndex = 0;
     }
 
     void MoveAlongPath()
     {
         if (currentPath == null || pathIndex >= currentPath.Count)
         {
-            ExecuteFireAction();
+            if (isExecutingAction) DropFireAndReturn();
+            else ResetToReady();
             return;
         }
 
+        float currentMoveSpeed = isExecutingAction ? actionSpeed : returnSpeed;
         Vector3 targetNode = currentPath[pathIndex];
 
-        // Safety: Check for walls but ignore the player and the spirit itself
-        Collider2D hit = Physics2D.OverlapCircle(transform.position, 0.15f, wallLayer);
-        if (hit != null && hit.transform != player && hit.transform != transform)
+        Vector3 nextStep = Vector3.MoveTowards(transform.position, targetNode, currentMoveSpeed * Time.deltaTime);
+
+        // Spirit ignores wool/fire even while moving along path
+        if (!IsPointBlocked(nextStep))
         {
-            Debug.Log("Spirit hit a wall (" + hit.gameObject.name + ") during dash! Stopping.");
-            StopAndStayPut();
-            return;
+            transform.position = nextStep;
         }
 
-        transform.position = Vector3.MoveTowards(transform.position, targetNode, actionSpeed * Time.deltaTime);
-
-        if (Vector3.Distance(transform.position, targetNode) < 0.1f)
+        if (Vector3.Distance(transform.position, targetNode) < 0.05f)
         {
             pathIndex++;
-            if (pathIndex >= currentPath.Count)
-            {
-                ExecuteFireAction();
-            }
         }
     }
 
-    void RepelNearbyEnemies()
-    {
-        Collider2D[] hitEnemies = Physics2D.OverlapCircleAll(transform.position, 0.8f, enemyLayer);
-        foreach (var enemy in hitEnemies)
-        {
-            Vector2 pushDir = (enemy.transform.position - transform.position).normalized;
-            Rigidbody2D rb = enemy.GetComponent<Rigidbody2D>();
-            if (rb != null) rb.AddForce(pushDir * spiritRepelForce);
-        }
-    }
-
-    public void StartFireAction(Vector3 destination)
-    {
-        if (isWaitingAtLocation)
-        {
-            Debug.Log("Spirit Lock: Too far! You must walk to the spirit to retrieve it.");
-            return;
-        }
-
-        if (isExecutingAction)
-        {
-            Debug.Log("Spirit Lock: Action already in progress.");
-            return;
-        }
-
-        // Check if destination is a wall, but ignore player
-        Collider2D destHit = Physics2D.OverlapPoint(destination, wallLayer);
-        if (destHit != null && destHit.transform != player)
-        {
-            Debug.Log("Target is a wall! Action cancelled.");
-            return;
-        }
-
-        isExecutingAction = true;
-        isWaitingAtLocation = false;
-
-        currentPath = FindBFSPath(transform.position, destination);
-        pathIndex = 0;
-
-        if (currentPath.Count == 0)
-        {
-            // If the grid search fails, allow a single-point direct dash
-            currentPath.Add(destination);
-        }
-    }
-
-    void ExecuteFireAction()
+    void DropFireAndReturn()
     {
         if (firePrefab != null) Instantiate(firePrefab, transform.position, Quaternion.identity);
-        StopAndStayPut();
-    }
-
-    void StopAndStayPut()
-    {
-        currentPath.Clear();
         isExecutingAction = false;
-        isWaitingAtLocation = true;
+        isReturning = true;
+        currentPath = FindPathBFS(transform.position, player.position + followOffset);
+        pathIndex = 0;
     }
 
-    List<Vector3> FindBFSPath(Vector3 start, Vector3 end)
+    void ResetToReady()
     {
-        Queue<Vector3> queue = new Queue<Vector3>();
-        Dictionary<Vector3, Vector3> cameFrom = new Dictionary<Vector3, Vector3>();
+        isExecutingAction = false;
+        isReturning = false;
+        isReady = true;
+        if (currentPath != null) currentPath.Clear();
+    }
 
-        Vector3 startSnapped = SnapToGrid(start);
-        Vector3 endSnapped = SnapToGrid(end);
+    List<Vector3> FindPathBFS(Vector3 start, Vector3 end)
+    {
+        Queue<Vector2Int> queue = new Queue<Vector2Int>();
+        Dictionary<Vector2Int, Vector2Int> cameFrom = new Dictionary<Vector2Int, Vector2Int>();
 
-        queue.Enqueue(startSnapped);
-        cameFrom[startSnapped] = startSnapped;
+        Vector2Int startGrid = WorldToGrid(start);
+        Vector2Int endGrid = WorldToGrid(end);
 
-        // Reverted to 4-directional movement (No diagonals) to prevent ignoring walls
-        Vector3[] directions = {
-            Vector3.up * nodeSpacing,
-            Vector3.down * nodeSpacing,
-            Vector3.left * nodeSpacing,
-            Vector3.right * nodeSpacing
-        };
+        queue.Enqueue(startGrid);
+        cameFrom[startGrid] = startGrid;
 
-        int iterations = 0;
-        while (queue.Count > 0 && iterations < maxSearchIterations)
+        bool found = false;
+        while (queue.Count > 0)
         {
-            iterations++;
-            Vector3 current = queue.Dequeue();
+            Vector2Int current = queue.Dequeue();
 
-            if (Vector3.Distance(current, endSnapped) < nodeSpacing * 1.2f)
-            {
-                return ReconstructPath(cameFrom, current);
-            }
+            if (current == endGrid) { found = true; break; }
+            if (cameFrom.Count > searchLimit) break;
 
-            foreach (Vector3 dir in directions)
+            foreach (Vector2Int neighbor in GetNeighbors(current))
             {
-                Vector3 next = current + dir;
-                if (!cameFrom.ContainsKey(next))
+                if (!cameFrom.ContainsKey(neighbor))
                 {
-                    // Check for walls but allow the path to pass through the player
-                    Collider2D hit = Physics2D.OverlapCircle(next, nodeSpacing * 0.45f, wallLayer);
-                    if (hit == null || hit.transform == player || hit.transform == transform)
+                    if (!IsPointBlocked(GridToWorld(neighbor)))
                     {
-                        cameFrom[next] = current;
-                        queue.Enqueue(next);
+                        cameFrom[neighbor] = current;
+                        queue.Enqueue(neighbor);
                     }
                 }
             }
         }
-        return new List<Vector3>();
-    }
 
-    List<Vector3> ReconstructPath(Dictionary<Vector3, Vector3> cameFrom, Vector3 current)
-    {
+        if (!found) return null;
+
         List<Vector3> path = new List<Vector3>();
-        while (cameFrom.ContainsKey(current) && cameFrom[current] != current)
+        Vector2Int curr = endGrid;
+        while (curr != startGrid)
         {
-            path.Add(current);
-            current = cameFrom[current];
+            path.Add(GridToWorld(curr));
+            curr = cameFrom[curr];
         }
         path.Reverse();
         return path;
     }
 
-    Vector3 SnapToGrid(Vector3 pos)
+    // UPDATED: Ignores Wool and Fire tags
+    bool IsPointBlocked(Vector3 worldPos)
     {
-        return new Vector3(Mathf.Round(pos.x / nodeSpacing) * nodeSpacing, Mathf.Round(pos.y / nodeSpacing) * nodeSpacing, 0);
+        Collider2D hit = Physics2D.OverlapCircle(worldPos, nodeSize * 0.4f);
+        if (hit == null || hit.isTrigger || hit.CompareTag("Player") || hit.CompareTag("Wool") || hit.CompareTag("Fire") || hit.gameObject == gameObject)
+        {
+            return false;
+        }
+        return true;
     }
 
-    void UpdateAnimations()
+    // UPDATED: Uses RaycastAll to filter out Wool/Fire and see the walls behind them
+    bool HasLineOfSight(Vector3 start, Vector3 end)
     {
-        if (animator == null) return;
-        Vector3 movementDelta = transform.position - lastPosition;
-        float speed = (Time.deltaTime > 0) ? movementDelta.magnitude / Time.deltaTime : 0;
-        if (speed > 0.1f) lastMoveDirection = movementDelta.normalized;
-        animator.SetFloat("moveX", lastMoveDirection.x);
-        animator.SetFloat("moveY", lastMoveDirection.y);
-        animator.SetFloat("speed", speed > 0.1f ? 1f : 0f);
-        lastPosition = transform.position;
+        float dist = Vector3.Distance(start, end);
+        RaycastHit2D[] hits = Physics2D.RaycastAll(start, (end - start).normalized, dist);
+
+        foreach (var hit in hits)
+        {
+            // Only count as a block if it's NOT a trigger, NOT player, NOT wool, and NOT fire
+            if (!hit.collider.isTrigger &&
+                !hit.collider.CompareTag("Player") &&
+                !hit.collider.CompareTag("Wool") &&
+                !hit.collider.CompareTag("Fire") &&
+                hit.collider.gameObject != gameObject)
+            {
+                return false;
+            }
+        }
+        return true;
     }
+
+    IEnumerable<Vector2Int> GetNeighbors(Vector2Int pos)
+    {
+        yield return new Vector2Int(pos.x + 1, pos.y);
+        yield return new Vector2Int(pos.x - 1, pos.y);
+        yield return new Vector2Int(pos.x, pos.y + 1);
+        yield return new Vector2Int(pos.x, pos.y - 1);
+    }
+
+    Vector2Int WorldToGrid(Vector3 pos) => new Vector2Int(Mathf.RoundToInt(pos.x / nodeSize), Mathf.RoundToInt(pos.y / nodeSize));
+    Vector3 GridToWorld(Vector2Int pos) => new Vector3(pos.x * nodeSize, pos.y * nodeSize, 0);
 
     void OnDrawGizmos()
     {
-        if (currentPath != null && currentPath.Count > 1)
-        {
-            Gizmos.color = Color.red;
-            for (int i = 0; i < currentPath.Count - 1; i++) Gizmos.DrawLine(currentPath[i], currentPath[i + 1]);
-        }
+        if (!showSearchRange) return;
+        Gizmos.color = gizmoColor;
+        float estimatedRadius = Mathf.Sqrt((searchLimit * (nodeSize * nodeSize)) / Mathf.PI);
+        Gizmos.DrawWireSphere(transform.position, estimatedRadius);
+    }
+
+    void UpdateAnims()
+    {
+        if (animator == null) return;
+        Vector3 delta = transform.position - lastPosition;
+        if (delta.sqrMagnitude > 0.001f) lastDir = delta.normalized;
+        animator.SetFloat("moveX", lastDir.x);
+        animator.SetFloat("moveY", lastDir.y);
+        animator.SetFloat("speed", delta.sqrMagnitude > 0.001f ? 1 : 0);
+        lastPosition = transform.position;
     }
 }

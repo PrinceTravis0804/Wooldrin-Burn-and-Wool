@@ -2,47 +2,98 @@ using UnityEngine;
 
 public class WoolResource : MonoBehaviour
 {
+    [Header("Health")]
     public float health = 100f;
     private float maxHealth;
-    private Vector3 originalScale;
+
+    [Header("Kick Indicator")]
+    public GameObject indicator;
+    public float indicatorRange = 1.2f;
+    public Vector3 indicatorOffset = new Vector3(0, 1.2f, 0);
+    [Range(0f, 1f)]
+    public float indicatorOpacity = 1.0f;
+
+    private Vector3 initialScale;
+    private PlayerController player;
+    private Transform playerTransform;
+    private SpriteRenderer indicatorSR;
+    private Rigidbody2D rb;
+    private int eatersCount = 0;
 
     void Start()
     {
+        rb = GetComponent<Rigidbody2D>();
+        // Store the starting health so scaling is always relative to the max
         maxHealth = health;
-        originalScale = transform.localScale;
 
-        // 1. TAG CHECK: The brain relies entirely on the 'Wool' tag
-        if (!gameObject.CompareTag("Wool"))
+        // CAPTURE whatever scale you set in the Transform component
+        initialScale = transform.localScale;
+
+        if (indicator != null)
         {
-            Debug.LogWarning("WoolResource: Tagging this object as 'Wool' automatically.");
-            gameObject.tag = "Wool";
+            indicatorSR = indicator.GetComponent<SpriteRenderer>();
+            indicator.SetActive(false);
         }
 
-        // 2. SENSORY CHECK: Enemies use OverlapCircleAll, which REQUIRES a collider.
-        // If you forgot to add one to the prefab, we'll add a trigger now.
-        if (GetComponent<Collider2D>() == null)
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
         {
-            CircleCollider2D col = gameObject.AddComponent<CircleCollider2D>();
-            col.isTrigger = true;
-            col.radius = 0.5f;
+            player = playerObj.GetComponent<PlayerController>();
+            playerTransform = playerObj.transform;
         }
     }
 
-    /// <summary>
-    /// Called by the AgentUtilityBrain when the enemy is in range.
-    /// </summary>
-    public void TakeBite(float damage)
+    void Update()
     {
-        health -= damage;
+        // Lock position if being eaten to prevent being pushed
+        if (rb != null)
+        {
+            if (eatersCount > 0) rb.constraints = RigidbodyConstraints2D.FreezeAll;
+            else rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        }
 
-        // Visual feedback: Wool shrinks as it is eaten
-        float t = Mathf.Clamp01(health / maxHealth);
-        transform.localScale = originalScale * t;
+        if (indicator != null && playerTransform != null)
+        {
+            float dist = Vector3.Distance(transform.position, playerTransform.position);
+            bool inRange = dist <= indicatorRange;
+
+            indicator.transform.localPosition = indicatorOffset;
+            if (indicatorSR != null)
+            {
+                Color c = indicatorSR.color;
+                c.a = indicatorOpacity;
+                indicatorSR.color = c;
+            }
+
+            if (indicator.activeSelf != inRange) indicator.SetActive(inRange);
+        }
+    }
+
+    public void TakeBite(float amount)
+    {
+        health -= amount;
+
+        // Use maxHealth instead of hardcoded 100f to prevent "explosion" bugs
+        float healthRatio = Mathf.Clamp01(health / maxHealth);
+        transform.localScale = initialScale * healthRatio;
 
         if (health <= 0)
         {
-            Debug.Log("WoolResource: Resource depleted.");
             Destroy(gameObject);
+        }
+    }
+
+    public void SetEatingState(bool isEating)
+    {
+        if (isEating) eatersCount++;
+        else eatersCount = Mathf.Max(0, eatersCount - 1);
+    }
+
+    private void OnDestroy()
+    {
+        if (player != null)
+        {
+            player.NotifyWoolDestroyed();
         }
     }
 }
