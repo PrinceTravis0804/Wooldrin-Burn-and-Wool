@@ -20,6 +20,11 @@ public class GameManager : MonoBehaviour
     public bool isFireSpiritRescued = false;
     public Vector3 spiritFollowOffset = new Vector3(-0.7f, 0.7f, 0);
 
+    [Header("Audio Management")]
+    public AudioSource bgmSource;
+    public AudioClip menuMusic;
+    public AudioClip levelMusic;
+
     [Header("Progression Data")]
     public List<string> rescuedFamilyMembers = new List<string>();
 
@@ -37,6 +42,8 @@ public class GameManager : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
+
+        if (bgmSource == null) bgmSource = GetComponent<AudioSource>();
     }
 
     private void OnEnable()
@@ -51,18 +58,36 @@ public class GameManager : MonoBehaviour
 
     private void OnLevelFinishedLoading(Scene scene, LoadSceneMode mode)
     {
+        // Safety reset to ensure game runs at normal speed in every new scene
         Time.timeScale = 1f;
         currentStageName = scene.name;
 
-        // If we are in the main menu, we must reset the game state entirely
+        // --- HANDLE BACKGROUND MUSIC ---
         if (scene.name == mainMenuName)
         {
+            UpdateBGM(menuMusic);
             ResetGameState();
             DestroyPersistentObjects();
             return;
         }
+        else
+        {
+            UpdateBGM(levelMusic);
+        }
 
         CleanupDuplicates();
+    }
+
+    private void UpdateBGM(AudioClip newClip)
+    {
+        if (bgmSource == null || newClip == null) return;
+
+        if (bgmSource.clip != newClip)
+        {
+            bgmSource.clip = newClip;
+            bgmSource.loop = true;
+            bgmSource.Play();
+        }
     }
 
     public void RequestSpawn(Vector3 spawnPosition)
@@ -201,7 +226,6 @@ public class GameManager : MonoBehaviour
 
     public void RestartLevel()
     {
-        // If we restart the first level, we reset the spirit state
         if (SceneManager.GetActiveScene().name == firstLevelName)
         {
             ResetGameState();
@@ -220,8 +244,12 @@ public class GameManager : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
+    // UPDATED: Faster response by resetting timescale and objects before the load begins
     public void GoToMainMenu()
     {
+        Time.timeScale = 1f; // Unpause immediately so the scene load doesn't feel sluggish
+        ResetGameState();    // Prepare data for menu
+        DestroyPersistentObjects(); // Clear the world immediately for faster visual transition
         SceneManager.LoadScene(mainMenuName);
     }
 

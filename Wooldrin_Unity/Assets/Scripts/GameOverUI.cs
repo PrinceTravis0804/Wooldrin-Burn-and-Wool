@@ -10,7 +10,7 @@ public class GameOverUI : MonoBehaviour
 
     public void ClickMainMenu()
     {
-        // If you have a Main Menu function in GameManager, call it here
-        // GameManager.Instance.LoadNextLevel(); // Or a specific menu function
+        // Now calls the Main Menu function we will define in GameManager
+        GameManager.Instance.GoToMainMenu();
     }
 }
