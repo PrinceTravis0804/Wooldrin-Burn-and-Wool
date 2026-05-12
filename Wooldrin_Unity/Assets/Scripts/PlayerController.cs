@@ -9,9 +9,7 @@ public class PlayerController : MonoBehaviour
     public Rigidbody2D rb;
 
     [Header("Knockback Settings")]
-    [Tooltip("How hard Wooldrin is pushed back. Increase this to increase the knockback distance.")]
     public float knockbackForce = 15f;
-    [Tooltip("How long (in seconds) Wooldrin loses control after being hit. A shorter time makes the knockback feel 'snappier'.")]
     public float knockbackDuration = 0.2f;
 
     [Header("Abilities")]
@@ -29,29 +27,26 @@ public class PlayerController : MonoBehaviour
     private bool isAutoMoving = false;
     private Vector2 lastFacingDir = Vector2.down;
     private Animator animator;
-    private WooldrinHealth health; // Reference for knockback check
+    private WooldrinHealth health;
+    private PlaySound soundController;
 
     void Start()
     {
         animator = GetComponent<Animator>();
         health = GetComponent<WooldrinHealth>();
+        soundController = GetComponentInChildren<PlaySound>();
 
         if (rb == null) rb = GetComponent<Rigidbody2D>();
-
-        // Ensure physics doesn't rotate the lamb
         if (rb != null) rb.freezeRotation = true;
     }
 
     void Update()
     {
-        // 1. Capture Manual Input
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
-        // Interrupt auto-moving if the player tries to move manually
         if (movement.sqrMagnitude > 0.01f) isAutoMoving = false;
 
-        // 2. LEFT CLICK: Auto-move to location and Drop Wool
         if (Input.GetMouseButtonDown(0) && canDropWool && !hasActiveWool)
         {
             Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -59,27 +54,26 @@ public class PlayerController : MonoBehaviour
             isAutoMoving = true;
         }
 
-        // 3. RIGHT CLICK: Fire Spirit Action
-        if (Input.GetMouseButtonDown(1) && spirit != null && spirit.isReady)
+        if (Input.GetMouseButtonDown(1))
         {
-            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            spirit.StartFireAction(new Vector3(mousePos.x, mousePos.y, 0));
+            if (spirit == null) spirit = FindObjectOfType<FireSpiritController>();
+            if (spirit != null && spirit.isReady)
+            {
+                Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                spirit.StartFireAction(new Vector3(mousePos.x, mousePos.y, 0));
+            }
         }
 
-        // 4. KICK WOOL
         if (Input.GetKeyDown(KeyCode.F)) TryKickWool();
 
-        // 5. Update Animations
         UpdateAnims();
     }
 
     void FixedUpdate()
     {
-        // --- CRITICAL CHECK: KNOCKBACK OVERRIDE ---
-        // If Wooldrin is being hit, we skip all movement logic so physics takes over.
         if (health != null && health.isBeingKnockedBack)
         {
-            isAutoMoving = false; // Cancel auto-movement on hit
+            isAutoMoving = false;
             return;
         }
 
@@ -98,7 +92,6 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // Standard manual movement
             rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
         }
     }
@@ -109,6 +102,16 @@ public class PlayerController : MonoBehaviour
         {
             Instantiate(woolPrefab, transform.position, Quaternion.identity);
             hasActiveWool = true;
+
+            if (soundController != null)
+            {
+                soundController.PlayWoolPlacementSound();
+            }
+            else
+            {
+                soundController = GetComponentInChildren<PlaySound>();
+                if (soundController != null) soundController.PlayWoolPlacementSound();
+            }
         }
         isAutoMoving = false;
         if (rb != null) rb.velocity = Vector2.zero;
@@ -132,17 +135,11 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    public void NotifyWoolDestroyed()
-    {
-        hasActiveWool = false;
-        Debug.Log("Wooldrin: Wool slot is now FREE.");
-    }
+    public void NotifyWoolDestroyed() { hasActiveWool = false; }
 
     void UpdateAnims()
     {
         if (animator == null) return;
-
-        // Determine which direction we are actually traveling
         Vector2 currentDir = isAutoMoving ? (targetLocation - rb.position).normalized : movement;
         float currentSpeed = isAutoMoving ? 1f : movement.sqrMagnitude;
 
@@ -154,11 +151,9 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // Facing direction while idle
             animator.SetFloat("moveX", lastFacingDir.x);
             animator.SetFloat("moveY", lastFacingDir.y);
         }
-
         animator.SetFloat("speed", currentSpeed);
     }
 }
