@@ -48,8 +48,8 @@ MonoBehaviour:
   m_LightType: 3
   m_BlendStyleIndex: 0
   m_FalloffIntensity: 0.5
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 1
+  m_Color: {r: 1, g: 0.47506687, b: 0, a: 1}
+  m_Intensity: 3
   m_LightVolumeIntensity: 1
   m_LightVolumeIntensityEnabled: 0
   m_ApplyToSortingLayers: 00000000717d55834d5f690dad466d892d457fd39f7001983bb13be0f7d2d663
@@ -96,7 +96,7 @@ GameObject:
   - component: {fileID: 1229275546089607969}
   m_Layer: 3
   m_Name: Fire_Spirit
-  m_TagString: Fire
+  m_TagString: FireSpirit
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -157,7 +157,7 @@ SpriteRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: -746633939
   m_SortingLayer: 5
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_Sprite: {fileID: 1217631534, guid: 73268ad3d680b694f9541c4c41f41d1b, type: 3}
   m_Color: {r: 0.945283, g: 1, b: 0.5896226, a: 1}
   m_FlipX: 0
@@ -187,9 +187,9 @@ MonoBehaviour:
   player: {fileID: 0}
   followOffset: {x: -0.7, y: 0.7, z: 0}
   lockOnProximity: 1.2
-  firePrefab: {fileID: 4728591674497461388, guid: fa03459fd9915f641adce651c3598df2, type: 3}
+  firePrefab: {fileID: 8153690749503957214, guid: 47d3801bcaaf23946ac3276ad32f3ce7, type: 3}
   nodeSize: 0.5
-  searchLimit: 400
+  searchLimit: 2000
   showSearchRange: 1
   gizmoColor: {r: 1, g: 1, b: 0, a: 0.2}
   isReady: 1

@@ -1601,9 +1601,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 783920467}
-        m_TargetAssemblyTypeName: PLAYbtn_OnClick, Assembly-CSharp
-        m_MethodName: Play
+      - m_Target: {fileID: 7300178552720343525, guid: 7b94409e4ccb40f4bb9ec578b0e68455, type: 3}
+        m_TargetAssemblyTypeName: GameManager, Assembly-CSharp
+        m_MethodName: LoadFirstLevel
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

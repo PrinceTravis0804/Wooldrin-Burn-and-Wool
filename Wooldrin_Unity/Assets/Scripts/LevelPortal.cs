@@ -2,13 +2,13 @@ using UnityEngine;
 
 public class LevelPortal : MonoBehaviour
 {
-    private bool canExit = false;
-
-    void Update()
+    // This triggers automatically when Wooldrin's collider enters the valve area
+    private void OnTriggerEnter2D(Collider2D other)
     {
-        if (canExit && Input.GetKeyDown(KeyCode.E)) GameManager.Instance.LoadNextLevel();
+        if (other.CompareTag("Player"))
+        {
+            Debug.Log("Valve: Automatically loading next stage...");
+            GameManager.Instance.LoadNextLevel();
+        }
     }
-
-    private void OnTriggerEnter2D(Collider2D other) { if (other.CompareTag("Player")) canExit = true; }
-    private void OnTriggerExit2D(Collider2D other) { if (other.CompareTag("Player")) canExit = false; }
 }

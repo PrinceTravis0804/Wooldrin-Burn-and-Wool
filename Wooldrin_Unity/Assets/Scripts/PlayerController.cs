@@ -8,6 +8,12 @@ public class PlayerController : MonoBehaviour
     public float moveSpeed = 5f;
     public Rigidbody2D rb;
 
+    [Header("Knockback Settings")]
+    [Tooltip("How hard Wooldrin is pushed back. Increase this to increase the knockback distance.")]
+    public float knockbackForce = 15f;
+    [Tooltip("How long (in seconds) Wooldrin loses control after being hit. A shorter time makes the knockback feel 'snappier'.")]
+    public float knockbackDuration = 0.2f;
+
     [Header("Abilities")]
     public GameObject woolPrefab;
     public float dropArrivalDistance = 0.6f;
@@ -23,20 +29,29 @@ public class PlayerController : MonoBehaviour
     private bool isAutoMoving = false;
     private Vector2 lastFacingDir = Vector2.down;
     private Animator animator;
+    private WooldrinHealth health; // Reference for knockback check
 
     void Start()
     {
         animator = GetComponent<Animator>();
+        health = GetComponent<WooldrinHealth>();
+
+        if (rb == null) rb = GetComponent<Rigidbody2D>();
+
+        // Ensure physics doesn't rotate the lamb
+        if (rb != null) rb.freezeRotation = true;
     }
 
     void Update()
     {
+        // 1. Capture Manual Input
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
-        if (movement.magnitude > 0.1f) isAutoMoving = false;
+        // Interrupt auto-moving if the player tries to move manually
+        if (movement.sqrMagnitude > 0.01f) isAutoMoving = false;
 
-        // LEFT CLICK: Move and Drop
+        // 2. LEFT CLICK: Auto-move to location and Drop Wool
         if (Input.GetMouseButtonDown(0) && canDropWool && !hasActiveWool)
         {
             Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
@@ -44,20 +59,30 @@ public class PlayerController : MonoBehaviour
             isAutoMoving = true;
         }
 
-        // RIGHT CLICK: Fire Spirit Action
+        // 3. RIGHT CLICK: Fire Spirit Action
         if (Input.GetMouseButtonDown(1) && spirit != null && spirit.isReady)
         {
             Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             spirit.StartFireAction(new Vector3(mousePos.x, mousePos.y, 0));
         }
 
+        // 4. KICK WOOL
         if (Input.GetKeyDown(KeyCode.F)) TryKickWool();
 
+        // 5. Update Animations
         UpdateAnims();
     }
 
     void FixedUpdate()
     {
+        // --- CRITICAL CHECK: KNOCKBACK OVERRIDE ---
+        // If Wooldrin is being hit, we skip all movement logic so physics takes over.
+        if (health != null && health.isBeingKnockedBack)
+        {
+            isAutoMoving = false; // Cancel auto-movement on hit
+            return;
+        }
+
         if (isAutoMoving)
         {
             float dist = Vector2.Distance(rb.position, targetLocation);
@@ -73,16 +98,20 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
+            // Standard manual movement
             rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
         }
     }
 
     void SpawnWool()
     {
-        Instantiate(woolPrefab, transform.position, Quaternion.identity);
-        hasActiveWool = true;
+        if (woolPrefab != null)
+        {
+            Instantiate(woolPrefab, transform.position, Quaternion.identity);
+            hasActiveWool = true;
+        }
         isAutoMoving = false;
-        rb.velocity = Vector2.zero;
+        if (rb != null) rb.velocity = Vector2.zero;
     }
 
     void TryKickWool()
@@ -103,7 +132,6 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    // Safer reset logic
     public void NotifyWoolDestroyed()
     {
         hasActiveWool = false;
@@ -113,14 +141,24 @@ public class PlayerController : MonoBehaviour
     void UpdateAnims()
     {
         if (animator == null) return;
-        Vector2 currentVel = isAutoMoving ? (targetLocation - rb.position).normalized : movement;
-        float speed = isAutoMoving ? 1f : movement.magnitude;
-        if (currentVel.magnitude > 0.1f)
+
+        // Determine which direction we are actually traveling
+        Vector2 currentDir = isAutoMoving ? (targetLocation - rb.position).normalized : movement;
+        float currentSpeed = isAutoMoving ? 1f : movement.sqrMagnitude;
+
+        if (currentDir.sqrMagnitude > 0.01f)
         {
-            lastFacingDir = currentVel.normalized;
+            lastFacingDir = currentDir.normalized;
             animator.SetFloat("moveX", lastFacingDir.x);
             animator.SetFloat("moveY", lastFacingDir.y);
         }
-        animator.SetFloat("speed", speed);
+        else
+        {
+            // Facing direction while idle
+            animator.SetFloat("moveX", lastFacingDir.x);
+            animator.SetFloat("moveY", lastFacingDir.y);
+        }
+
+        animator.SetFloat("speed", currentSpeed);
     }
 }

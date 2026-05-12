@@ -49,6 +49,14 @@ public class FireSpiritController : MonoBehaviour
     {
         if (player == null) return;
 
+        // --- NEW: RIGHT CLICK INPUT ---
+        if (Input.GetMouseButtonDown(1) && isReady)
+        {
+            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            mousePos.z = 0;
+            StartFireAction(mousePos);
+        }
+
         Vector3 guardTarget = player.position + followOffset;
         float distToWooldrin = Vector3.Distance(transform.position, player.position);
 
@@ -101,6 +109,7 @@ public class FireSpiritController : MonoBehaviour
 
         isExecutingAction = true;
         pathIndex = 0;
+        Debug.Log("FireSpirit: Flying to destination!");
     }
 
     void MoveAlongPath()
@@ -117,7 +126,6 @@ public class FireSpiritController : MonoBehaviour
 
         Vector3 nextStep = Vector3.MoveTowards(transform.position, targetNode, currentMoveSpeed * Time.deltaTime);
 
-        // Spirit ignores wool/fire even while moving along path
         if (!IsPointBlocked(nextStep))
         {
             transform.position = nextStep;
@@ -191,7 +199,6 @@ public class FireSpiritController : MonoBehaviour
         return path;
     }
 
-    // UPDATED: Ignores Wool and Fire tags
     bool IsPointBlocked(Vector3 worldPos)
     {
         Collider2D hit = Physics2D.OverlapCircle(worldPos, nodeSize * 0.4f);
@@ -202,7 +209,6 @@ public class FireSpiritController : MonoBehaviour
         return true;
     }
 
-    // UPDATED: Uses RaycastAll to filter out Wool/Fire and see the walls behind them
     bool HasLineOfSight(Vector3 start, Vector3 end)
     {
         float dist = Vector3.Distance(start, end);
@@ -210,7 +216,6 @@ public class FireSpiritController : MonoBehaviour
 
         foreach (var hit in hits)
         {
-            // Only count as a block if it's NOT a trigger, NOT player, NOT wool, and NOT fire
             if (!hit.collider.isTrigger &&
                 !hit.collider.CompareTag("Player") &&
                 !hit.collider.CompareTag("Wool") &&
