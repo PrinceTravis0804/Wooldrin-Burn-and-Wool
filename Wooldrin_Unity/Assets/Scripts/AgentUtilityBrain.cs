@@ -16,6 +16,11 @@ public class AgentUtilityBrain : MonoBehaviour
     [Tooltip("Adjust this to change the distance Wooldrin is pushed!")]
     public float knockbackPower = 15f;
 
+    [Header("Audio")]
+    public AudioSource hurtSource;
+    public AudioClip hurtClip;
+    public float volume = 0.7f;
+
     private Rigidbody2D rb;
     private Animator anim;
     private SpriteRenderer sr;
@@ -115,6 +120,24 @@ public class AgentUtilityBrain : MonoBehaviour
 
     IEnumerator WaitRoutine() { isWaiting = true; yield return new WaitForSeconds(Random.Range(1f, 3f)); isWaiting = false; PickNewWanderPoint(); }
     void PickNewWanderPoint() { wanderTarget = (Vector2)transform.position + Random.insideUnitCircle * roamRadius; }
+
+    public void TakeDamage()
+    {
+        if (anim != null) anim.SetTrigger("isHurt");
+
+        if (hurtSource != null && hurtClip != null)
+        {
+            hurtSource.PlayOneShot(hurtClip, volume);
+        }
+    }
+
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.CompareTag("FireSpirit"))
+        {            
+            TakeDamage(); 
+        }
+    }
 
     private void OnCollisionEnter2D(Collision2D c)
     {
