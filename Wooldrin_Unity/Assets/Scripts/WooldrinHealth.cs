@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections;
-using Cinemachine; // Required for screen shake
+using Cinemachine;
 
 public class WooldrinHealth : MonoBehaviour
 {
@@ -9,14 +9,14 @@ public class WooldrinHealth : MonoBehaviour
     public float invincibilityTime = 1.5f;
 
     [Header("Knockback & Shake")]
-    [Tooltip("How long the player is 'stunned' during knockback.")]
     public float knockbackDuration = 0.2f;
 
     private float invinceTimer;
     private Vector3 originalScale;
     private SpriteRenderer sr;
     private Rigidbody2D rb;
-    private CinemachineImpulseSource impulseSource; // The screen shake component
+    private CinemachineImpulseSource impulseSource;
+    private PlaySound soundController;
     private bool isDead = false;
 
     public bool isBeingKnockedBack { get; private set; }
@@ -29,10 +29,12 @@ public class WooldrinHealth : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         impulseSource = GetComponent<CinemachineImpulseSource>();
 
+        // Search self and children for the sound script
+        soundController = GetComponentInChildren<PlaySound>();
+
         if (rb != null) rb.freezeRotation = true;
     }
 
-    // UPDATED: Now accepts a custom force value from the attacker
     public void TakeDamage(Vector2 attackerPos, float knockbackForce)
     {
         if (IsInvulnerable || woolLayers <= 0 || isDead) return;
@@ -40,28 +42,29 @@ public class WooldrinHealth : MonoBehaviour
         woolLayers--;
         invinceTimer = Time.time + invincibilityTime;
 
-        // 1. SCREEN SHAKE
-        if (impulseSource != null)
+        // Trigger Sound
+        if (soundController != null)
         {
-            // Scale the shake based on how hard the hit was
-            float shakeIntensity = Mathf.Clamp(knockbackForce / 10f, 0.5f, 2f);
-            impulseSource.GenerateImpulse(Vector3.one * shakeIntensity);
+            soundController.PlayDamageSound();
+        }
+        else
+        {
+            // Try one last time to find it if it was added late
+            soundController = GetComponentInChildren<PlaySound>();
+            if (soundController != null) soundController.PlayDamageSound();
         }
 
-        // 2. KNOCKBACK
-        if (rb != null)
-        {
-            StartCoroutine(KnockbackRoutine(attackerPos, knockbackForce));
-        }
+        // Visuals & Physics
+        if (impulseSource != null) impulseSource.GenerateImpulse(Vector3.one * (knockbackForce / 10f));
+        if (rb != null) StartCoroutine(KnockbackRoutine(attackerPos, knockbackForce));
 
         UpdateVisualScale();
         StartCoroutine(HurtFlash());
 
-        // 3. DEATH CHECK
         if (woolLayers <= 0)
         {
             isDead = true;
-            if (GameManager.Instance != null) Invoke("TriggerGameOver", 0.5f);
+            Invoke("TriggerGameOver", 0.5f);
         }
     }
 
@@ -70,14 +73,10 @@ public class WooldrinHealth : MonoBehaviour
     private IEnumerator KnockbackRoutine(Vector2 attackerPos, float force)
     {
         isBeingKnockedBack = true;
-
         Vector2 pushDirection = ((Vector2)transform.position - attackerPos).normalized;
-
-        rb.velocity = Vector2.zero; // Clear momentum for a clean shove
+        rb.velocity = Vector2.zero;
         rb.AddForce(pushDirection * force, ForceMode2D.Impulse);
-
         yield return new WaitForSeconds(knockbackDuration);
-
         isBeingKnockedBack = false;
     }
 
@@ -108,6 +107,5 @@ public class WooldrinHealth : MonoBehaviour
             yield return new WaitForSeconds(0.1f);
             elapsed += 0.2f;
         }
-        if (sr != null) sr.color = Color.white;
     }
 }

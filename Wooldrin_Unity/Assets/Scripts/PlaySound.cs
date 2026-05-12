@@ -1,7 +1,7 @@
 using UnityEngine;
 
 public class PlaySound : MonoBehaviour
-{   
+{
     public AudioSource walkSound;
     public AudioSource fireSound;
     public AudioSource woolSound;
@@ -14,30 +14,52 @@ public class PlaySound : MonoBehaviour
 
         if (isMoving)
         {
-            if (!walkSound.isPlaying)
+            if (walkSound != null && !walkSound.isPlaying)
             {
                 walkSound.Play();
             }
         }
         else
         {
-            walkSound.Stop();
+            if (walkSound != null && walkSound.isPlaying)
+            {
+                walkSound.Stop();
+            }
         }
 
         // --- FIRING LOGIC ---
         if (Input.GetMouseButtonDown(1))
         {
-            fireSound.PlayOneShot(fireSound.clip);
+            if (fireSound != null && fireSound.clip != null)
+            {
+                fireSound.PlayOneShot(fireSound.clip);
+            }
         }
     }
 
     public void PlayWoolPlacementSound()
     {
-        if (woolSound != null) woolSound.PlayOneShot(woolSound.clip);
+        if (woolSound != null && woolSound.clip != null)
+        {
+            Debug.Log("PlaySound: Playing Wool Sound");
+            woolSound.PlayOneShot(woolSound.clip);
+        }
+        else
+        {
+            Debug.LogWarning("PlaySound: Wool AudioSource or Clip is MISSING!");
+        }
     }
 
     public void PlayDamageSound()
     {
-        if (damageSound != null) damageSound.PlayOneShot(damageSound.clip);
+        if (damageSound != null && damageSound.clip != null)
+        {
+            Debug.Log("PlaySound: Playing Damage Sound (Baa!)");
+            damageSound.PlayOneShot(damageSound.clip);
+        }
+        else
+        {
+            Debug.LogWarning("PlaySound: Damage AudioSource or Clip is MISSING!");
+        }
     }
 }
