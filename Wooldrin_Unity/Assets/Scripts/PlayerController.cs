@@ -42,6 +42,15 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        // --- NEW: DIALOGUE FREEZE CHECK ---
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+        {
+            movement = Vector2.zero;
+            isAutoMoving = false;
+            UpdateAnims();
+            return; // Exit Update entirely so player can't input drops/kicks
+        }
+
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
@@ -71,6 +80,13 @@ public class PlayerController : MonoBehaviour
 
     void FixedUpdate()
     {
+        // --- NEW: PHYSICAL VELOCITY LOCK ---
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+        {
+            if (rb != null) rb.velocity = Vector2.zero;
+            return;
+        }
+
         if (health != null && health.isBeingKnockedBack)
         {
             isAutoMoving = false;

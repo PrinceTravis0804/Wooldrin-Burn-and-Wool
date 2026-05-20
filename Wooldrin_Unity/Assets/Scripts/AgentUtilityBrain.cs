@@ -16,11 +16,6 @@ public class AgentUtilityBrain : MonoBehaviour
     [Tooltip("Adjust this to change the distance Wooldrin is pushed!")]
     public float knockbackPower = 15f;
 
-    [Header("Audio")]
-    public AudioSource hurtSource;
-    public AudioClip hurtClip;
-    public float volume = 0.7f;
-
     private Rigidbody2D rb;
     private Animator anim;
     private SpriteRenderer sr;
@@ -43,12 +38,23 @@ public class AgentUtilityBrain : MonoBehaviour
 
     void Update()
     {
+        // --- NEW: DIALOGUE MOVEMENT FREEZE ---
+        // If a dialogue window is active, stop translating physically but keep animations playing
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+        {
+            if (rb != null) rb.velocity = Vector2.zero;
+            UpdateAnimation(Vector2.zero); // This sets the animator "speed" parameter to 0, triggering their breathing/idle animation
+            return; // Skip AI decisions and translations entirely
+        }
+
         if (isAttacking)
         {
             UpdateAnimation(Vector2.zero);
             return;
         }
+
         DetermineBehavior();
+
         if (sr != null)
         {
             if (isPanicked) sr.color = Color.red;
@@ -121,32 +127,16 @@ public class AgentUtilityBrain : MonoBehaviour
     IEnumerator WaitRoutine() { isWaiting = true; yield return new WaitForSeconds(Random.Range(1f, 3f)); isWaiting = false; PickNewWanderPoint(); }
     void PickNewWanderPoint() { wanderTarget = (Vector2)transform.position + Random.insideUnitCircle * roamRadius; }
 
-    public void TakeDamage()
-    {
-        if (anim != null) anim.SetTrigger("isHurt");
-
-        if (hurtSource != null && hurtClip != null)
-        {
-            hurtSource.PlayOneShot(hurtClip, volume);
-        }
-    }
-
-    private void OnTriggerEnter2D(Collider2D collision)
-    {
-        if (collision.CompareTag("FireSpirit"))
-        {            
-            TakeDamage(); 
-        }
-    }
-
     private void OnCollisionEnter2D(Collision2D c)
     {
+        // Don't register damage collisions if a dialogue is currently playing
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive) return;
+
         if (c.gameObject.CompareTag("Player") && !isAttacking)
         {
             WooldrinHealth health = c.gameObject.GetComponent<WooldrinHealth>();
             if (health != null && !health.IsInvulnerable)
             {
-                // Passing the slime's specific knockbackPower to the Health script
                 health.TakeDamage(transform.position, knockbackPower);
                 StartCoroutine(AttackRebound());
             }
@@ -156,6 +146,8 @@ public class AgentUtilityBrain : MonoBehaviour
 
     private void OnCollisionStay2D(Collision2D c)
     {
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive) return;
+
         if (c.gameObject.CompareTag("Wool")) { isEating = true; rb.velocity = Vector2.zero; c.gameObject.GetComponent<WoolResource>()?.TakeBite(biteStrength * Time.deltaTime); }
     }
 
