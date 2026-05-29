@@ -49,13 +49,8 @@ public class FireSpiritController : MonoBehaviour
     {
         if (player == null) return;
 
-        // --- NEW: RIGHT CLICK INPUT ---
-        if (Input.GetMouseButtonDown(1) && isReady)
-        {
-            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            mousePos.z = 0;
-            StartFireAction(mousePos);
-        }
+        // Note: The redundant mouse input check has been removed here.
+        // It is now managed centrally inside PlayerController.cs to avoid overlapping execution.
 
         Vector3 guardTarget = player.position + followOffset;
         float distToWooldrin = Vector3.Distance(transform.position, player.position);

@@ -2,32 +2,27 @@ using UnityEngine;
 
 public class WoolResource : MonoBehaviour
 {
-    [Header("Health")]
+    [Header("Health & Scaling")]
     public float health = 100f;
     private float maxHealth;
+    private Vector3 initialScale;
 
-    [Header("Kick Indicator")]
+    [Header("Indicator UI")]
     public GameObject indicator;
     public float indicatorRange = 1.2f;
     public Vector3 indicatorOffset = new Vector3(0, 1.2f, 0);
-    [Range(0f, 1f)]
-    public float indicatorOpacity = 1.0f;
+    [Range(0f, 1f)] public float indicatorOpacity = 1.0f;
 
-    private Vector3 initialScale;
-    private PlayerController player;
-    private Transform playerTransform;
-    private SpriteRenderer indicatorSR;
     private Rigidbody2D rb;
+    private SpriteRenderer indicatorSR;
+    private Transform player;
     private int eatersCount = 0;
 
     void Start()
     {
-        rb = GetComponent<Rigidbody2D>();
-        // Store the starting health so scaling is always relative to the max
         maxHealth = health;
-
-        // CAPTURE whatever scale you set in the Transform component
         initialScale = transform.localScale;
+        rb = GetComponent<Rigidbody2D>();
 
         if (indicator != null)
         {
@@ -38,23 +33,16 @@ public class WoolResource : MonoBehaviour
         GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
         if (playerObj != null)
         {
-            player = playerObj.GetComponent<PlayerController>();
-            playerTransform = playerObj.transform;
+            player = playerObj.transform;
         }
     }
 
     void Update()
     {
-        // Lock position if being eaten to prevent being pushed
-        if (rb != null)
+        // Safe Unity null check (evaluates correctly for destroyed objects)
+        if (indicator != null && player != null)
         {
-            if (eatersCount > 0) rb.constraints = RigidbodyConstraints2D.FreezeAll;
-            else rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-        }
-
-        if (indicator != null && playerTransform != null)
-        {
-            float dist = Vector3.Distance(transform.position, playerTransform.position);
+            float dist = Vector2.Distance(transform.position, player.position);
             bool inRange = dist <= indicatorRange;
 
             indicator.transform.localPosition = indicatorOffset;
@@ -69,31 +57,39 @@ public class WoolResource : MonoBehaviour
         }
     }
 
-    public void TakeBite(float amount)
-    {
-        health -= amount;
-
-        // Use maxHealth instead of hardcoded 100f to prevent "explosion" bugs
-        float healthRatio = Mathf.Clamp01(health / maxHealth);
-        transform.localScale = initialScale * healthRatio;
-
-        if (health <= 0)
-        {
-            Destroy(gameObject);
-        }
-    }
-
     public void SetEatingState(bool isEating)
     {
         if (isEating) eatersCount++;
         else eatersCount = Mathf.Max(0, eatersCount - 1);
+
+        if (rb != null)
+        {
+            // Freeze position if being eaten so slimes can't push it
+            rb.constraints = eatersCount > 0 ? RigidbodyConstraints2D.FreezeAll : RigidbodyConstraints2D.FreezeRotation;
+        }
+    }
+
+    public void TakeBite(float amount)
+    {
+        health -= amount;
+        float ratio = Mathf.Clamp01(health / maxHealth);
+        transform.localScale = initialScale * ratio;
+
+        if (health <= 0) Destroy(gameObject);
     }
 
     private void OnDestroy()
     {
+        // CRITICAL FIX: The '?.' operator on Unity GameObjects/Transforms bypasses Unity's custom null check
+        // because the C# wrapper object is technically not null even if the underlying engine object is destroyed.
+        // We use standard Unity '!= null' checks to prevent MissingReferenceException during scene loads/reloads!
         if (player != null)
         {
-            player.NotifyWoolDestroyed();
+            PlayerController pc = player.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                pc.NotifyWoolDestroyed(gameObject);
+            }
         }
     }
 }
