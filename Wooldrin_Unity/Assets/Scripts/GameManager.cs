@@ -30,6 +30,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Level Info")]
     public string firstLevelName = "Level_01_Throat";
+    public string cutsceneSceneName = "CutSceneLoad"; // Added tracking for the cutscene scene
     public string mainMenuName = "LandingPage";
     public string currentStageName;
 
@@ -69,6 +70,12 @@ public class GameManager : MonoBehaviour
             ResetGameState();
             DestroyPersistentObjects();
             return;
+        }
+        // Don't auto-play general level music if we are in the introduction cutscene
+        else if (scene.name == cutsceneSceneName)
+        {
+            // If your cutscene uses separate Timeline audio tracks, stop the menu BGM here
+            if (bgmSource != null) bgmSource.Stop(); 
         }
         else
         {
@@ -208,6 +215,14 @@ public class GameManager : MonoBehaviour
 
     // --- NAVIGATION & PUBLIC METHODS ---
 
+    // Option 1 Implementation: Method targeted by your Main Menu Play Button
+    public void LoadCutscene()
+    {
+        ResetGameState();
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(cutsceneSceneName);
+    }
+
     public void LoadFirstLevel()
     {
         ResetGameState();
@@ -221,7 +236,7 @@ public class GameManager : MonoBehaviour
         if (nextIndex < SceneManager.sceneCountInBuildSettings)
             SceneManager.LoadScene(nextIndex);
         else
-            WinGame();
+            MakeWinGame(); // Renamed internally to keep clean logic separation
     }
 
     public void RestartLevel()
@@ -244,12 +259,11 @@ public class GameManager : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
-    // UPDATED: Faster response by resetting timescale and objects before the load begins
     public void GoToMainMenu()
     {
-        Time.timeScale = 1f; // Unpause immediately so the scene load doesn't feel sluggish
-        ResetGameState();    // Prepare data for menu
-        DestroyPersistentObjects(); // Clear the world immediately for faster visual transition
+        Time.timeScale = 1f; 
+        ResetGameState();    
+        DestroyPersistentObjects(); 
         SceneManager.LoadScene(mainMenuName);
     }
 
@@ -262,7 +276,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void WinGame()
+    public void MakeWinGame()
     {
         if (gameWinPrefab != null && Time.timeScale != 0f)
         {
