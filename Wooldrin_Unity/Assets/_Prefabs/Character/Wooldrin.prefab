@@ -161,8 +161,11 @@ MonoBehaviour:
   dropArrivalDistance: 0.3
   kickForce: 100
   spirit: {fileID: 196745943509229604, guid: 679479f90ba5f544f920ab5cb371f61f, type: 3}
+  maxWoolCharges: 2
+  woolRechargeDuration: 5
+  maxFireCharges: 3
+  fireRechargeDuration: 5
   canDropWool: 1
-  hasActiveWool: 0
 --- !u!114 &4543627251431950597
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -441,6 +444,9 @@ MonoBehaviour:
   fireSound: {fileID: 1648189363904304705}
   woolSound: {fileID: 7303507656730893662}
   damageSound: {fileID: 9123413975339983448}
+  stomachSceneName: Level_02_Stomach
+  wetWalkClip: {fileID: 8300000, guid: 4bd8cfe3f3cb7c5438f22d3eed033715, type: 3}
+  wetWalkVolume: 0.2
 --- !u!82 &1648189363904304705
 AudioSource:
   m_ObjectHideFlags: 0
