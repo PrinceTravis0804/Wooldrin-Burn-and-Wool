@@ -9,6 +9,9 @@ EditorBuildSettings:
     path: Assets/Scenes/LandingPage.unity
     guid: 3aa615a2fd031f047b7e59ccb3382fc9
   - enabled: 1
+    path: Assets/CutSceneLoad.unity
+    guid: 9a5c9526b80c0724d835668eb822a80b
+  - enabled: 1
     path: Assets/Level_01_Throat.unity
     guid: 09089f8c679453b438f008ef31182ce5
   - enabled: 1
