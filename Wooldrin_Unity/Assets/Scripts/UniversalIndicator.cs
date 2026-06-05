@@ -11,7 +11,8 @@ public class UniversalIndicator : MonoBehaviour
     [Tooltip("The text component inside the bubble to display hints (e.g. '[F] Kick' or '[Space] Talk').")]
     public TextMeshProUGUI indicatorText;
     [Tooltip("The text content to display. Leave empty if you only want to show a graphic/icon.")]
-    public string defaultText = "[F] INTERACT";
+    public string defaultText = "[L-Shift] INTERACT";
+
 
     [Header("Optional Sprite Animation Settings")]
     [Tooltip("The Image component that displays the icon we want to animate (e.g. Bubble_Image).")]
@@ -38,12 +39,13 @@ public class UniversalIndicator : MonoBehaviour
     public float fadeSpeed = 5f;
 
     [Header("Interaction Action (Optional)")]
+    [Header("Interaction Action (Optional)")]
     [Tooltip("If checked, the player can press an action key to trigger a dialogue or custom event.")]
     public bool enableActionKey = false;
     [Tooltip("The key the player must press to execute the action.")]
-    public KeyCode actionKey = KeyCode.F;
+    public KeyCode actionKey = KeyCode.LeftShift;
     [Tooltip("Optional Dialogue parameters to trigger when the key is pressed.")]
-    public string speakerName = "Signpost";
+    public string speakerName = "Wooldrin";
     [TextArea(2, 4)]
     public string dialogueText = "This is a mysterious warning message...";
 
