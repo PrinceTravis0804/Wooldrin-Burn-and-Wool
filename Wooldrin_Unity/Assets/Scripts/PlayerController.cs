@@ -29,8 +29,12 @@ public class PlayerController : MonoBehaviour
     [Tooltip("How long in seconds it takes to regenerate a single Fire Spirit charge (Regeneration Speed). Lower is faster!")]
     public float fireRechargeDuration = 5f;
 
-    [Header("State")]
-    public bool canDropWool = true;
+    [Header("Ability Unlocks")]
+    public bool canKickWool = false; // Initially false
+
+    [Header("Ability Unlocks")]
+    public bool canDropWool = false; // Ensure this is set to false by defaul
+
     public bool hasActiveWool => activeWools.Count > 0;
 
     // Cooldown, Charge, and Lockout Trackers
@@ -102,34 +106,17 @@ public class PlayerController : MonoBehaviour
         movement.x = Input.GetAxisRaw("Horizontal");
         movement.y = Input.GetAxisRaw("Vertical");
 
-        if (movement.sqrMagnitude > 0.01f) isAutoMoving = false;
-
-        // Left Click: Drop Decoy Wool (Guarded by Charges + Lockout checks)
-        if (Input.GetMouseButtonDown(0) && canDropWool && currentWoolCharges > 0 && !isWoolLockedOut)
+        // NEW: Drop Wool on SPACE (Instant placement, no auto-walk)
+        if (Input.GetKeyDown(KeyCode.Space) && canDropWool && currentWoolCharges > 0 && !isWoolLockedOut)
         {
-            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-            targetLocation = new Vector2(mousePos.x, mousePos.y);
-            isAutoMoving = true;
+            SpawnWool(); // No longer relies on isAutoMoving
         }
 
-        // Right Click: Command Fire Spirit (Guarded by Charges + Lockout checks + Readiness Check)
-        if (Input.GetMouseButtonDown(1))
+        // NEW: Fire Spirit on LEFT CLICK (Replaces previous Wool drop)
+        if (Input.GetMouseButtonDown(0))
         {
-            if (spirit == null) spirit = FindObjectOfType<FireSpiritController>();
-            if (spirit != null && spirit.isReady && currentFireCharges > 0 && !isFireLockedOut)
-            {
-                Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-                spirit.StartFireAction(new Vector3(mousePos.x, mousePos.y, 0));
-
-                // Spend 1 Fire Charge
-                currentFireCharges--;
-
-                // Lockout triggers ONLY when you run out of charges (0)
-                if (currentFireCharges == 0)
-                {
-                    isFireLockedOut = true;
-                }
-            }
+            // Add logic to call your Fire Spirit action here
+            CommandFireSpirit();
         }
 
         if (Input.GetKeyDown(KeyCode.F)) TryKickWool();
@@ -151,23 +138,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (isAutoMoving)
-        {
-            float dist = Vector2.Distance(rb.position, targetLocation);
-            if (dist > dropArrivalDistance)
-            {
-                Vector2 nextStep = Vector2.MoveTowards(rb.position, targetLocation, moveSpeed * Time.fixedDeltaTime);
-                rb.MovePosition(nextStep);
-            }
-            else
-            {
-                SpawnWool();
-            }
-        }
-        else
-        {
-            rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
-        }
+        rb.MovePosition(rb.position + movement.normalized * moveSpeed * Time.fixedDeltaTime);
     }
 
     private void HandleCooldownRecharges()
@@ -223,22 +194,32 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    public void UnlockWoolAbility()
+    {
+        canDropWool = true;
+        Debug.Log("PlayerController: Wool ability unlocked!");
+    }
+
     void SpawnWool()
     {
+        // 1. Keep your charge and lockout checks
         if (woolPrefab != null && currentWoolCharges > 0 && !isWoolLockedOut)
         {
-            GameObject newWool = Instantiate(woolPrefab, transform.position, Quaternion.identity);
+            // 2. Calculate position in front of player using lastFacingDir
+            // This ensures the wool spawns in front instead of directly on top of you
+            Vector3 spawnPos = transform.position + (Vector3)lastFacingDir * 0.5f;
+
+            GameObject newWool = Instantiate(woolPrefab, spawnPos, Quaternion.identity);
             activeWools.Add(newWool);
 
-            // Consume 1 wool charge
+            // 3. Consume charge
             currentWoolCharges--;
-
-            // Lockout triggers ONLY when you run out of charges (0)
             if (currentWoolCharges == 0)
             {
                 isWoolLockedOut = true;
             }
 
+            // 4. Sound logic (keeping your existing fallback)
             if (soundController != null)
             {
                 soundController.PlayWoolPlacementSound();
@@ -249,12 +230,16 @@ public class PlayerController : MonoBehaviour
                 if (soundController != null) soundController.PlayWoolPlacementSound();
             }
         }
-        isAutoMoving = false;
-        if (rb != null) rb.velocity = Vector2.zero;
+
+        // REMOVE these lines as they were part of the auto-walk system:
+        // isAutoMoving = false;
+        // if (rb != null) rb.velocity = Vector2.zero;
     }
 
     void TryKickWool()
     {
+        if (!canKickWool) return;
+
         Collider2D[] hit = Physics2D.OverlapCircleAll(transform.position, 1.5f);
         foreach (var obj in hit)
         {
@@ -271,6 +256,25 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    private void CommandFireSpirit()
+    {
+        // Ensure you have a reference to the spirit controller[cite: 14, 26]
+        if (spirit == null) spirit = FindObjectOfType<FireSpiritController>();
+
+        // Perform your fire spirit action logic[cite: 14, 26]
+        if (spirit != null && spirit.isReady && currentFireCharges > 0 && !isFireLockedOut)
+        {
+            Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            spirit.StartFireAction(new Vector3(mousePos.x, mousePos.y, 0));
+
+            currentFireCharges--;
+            if (currentFireCharges == 0)
+            {
+                isFireLockedOut = true;
+            }
+        }
+    }
+
     public void NotifyWoolDestroyed(GameObject woolObj)
     {
         if (activeWools.Contains(woolObj))
@@ -282,20 +286,16 @@ public class PlayerController : MonoBehaviour
     void UpdateAnims()
     {
         if (animator == null) return;
-        Vector2 currentDir = isAutoMoving ? (targetLocation - rb.position).normalized : movement;
-        float currentSpeed = isAutoMoving ? 1f : movement.sqrMagnitude;
 
-        if (currentDir.sqrMagnitude > 0.01f)
+        // Since isAutoMoving is now always false, we can simplify this:
+        if (movement.sqrMagnitude > 0.01f)
         {
-            lastFacingDir = currentDir.normalized;
+            lastFacingDir = movement.normalized;
             animator.SetFloat("moveX", lastFacingDir.x);
             animator.SetFloat("moveY", lastFacingDir.y);
         }
-        else
-        {
-            animator.SetFloat("moveX", lastFacingDir.x);
-            animator.SetFloat("moveY", lastFacingDir.y);
-        }
-        animator.SetFloat("speed", currentSpeed);
+
+        // speed is simply the magnitude of your movement vector
+        animator.SetFloat("speed", movement.sqrMagnitude);
     }
 }

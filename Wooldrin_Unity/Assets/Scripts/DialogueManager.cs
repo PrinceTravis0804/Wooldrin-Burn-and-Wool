@@ -130,7 +130,7 @@ public class DialogueManager : MonoBehaviour
         }
 
         DialogueLine line = dialogueQueue.Dequeue();
-
+        Debug.Log("DialogueManager: Displaying line from: " + line.speakerName + " Content: " + line.textContent);
         if (speakerNameText != null)
         {
             if (string.IsNullOrEmpty(line.speakerName))

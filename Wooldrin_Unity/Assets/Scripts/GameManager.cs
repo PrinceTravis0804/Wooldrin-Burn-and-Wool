@@ -34,6 +34,9 @@ public class GameManager : MonoBehaviour
     public string mainMenuName = "LandingPage";
     public string currentStageName;
 
+    [Header("Buff Tracking")]
+    public List<string> activeBuffs = new List<string>();
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -300,4 +303,35 @@ public class GameManager : MonoBehaviour
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null) HandleFireSpiritSpawn(player.transform);
     }
+
+    public void ApplyBuff(string familyMemberID)
+    {
+        switch (familyMemberID)
+        {
+            case "Elder Baa":
+                // Already handled: Unlocks Wool Skill
+                break;
+            case "Daisy":
+                // Buff: 20% Faster Move Speed
+                // You can reference player's moveSpeed here
+                GameObject player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null) player.GetComponent<PlayerController>().moveSpeed *= 1.2f;
+                break;
+            case "Baaron":
+                // Buff: Unlocks/Boosts Kick Mechanic
+                break;
+            case "Baanita":
+                // Buff: Holds the Exit Key
+                break;
+        }
+    }
+    public void UnlockKickMechanic()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            player.GetComponent<PlayerController>().canKickWool = true;
+        }
+    }
+
 }
