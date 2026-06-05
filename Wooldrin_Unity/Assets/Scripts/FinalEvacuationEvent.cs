@@ -81,7 +81,7 @@ public class FinalEvacuationEvent : MonoBehaviour
         // Dialogue warning
         if (DialogueManager.Instance != null)
         {
-            DialogueManager.Instance.ShowDialogue("System", "The dragon's stomach is rumbling fiercely... A massive evacuation is starting!");
+            DialogueManager.Instance.ShowDialogue("Baanita", "The dragon's stomach is rumbling fiercely... A massive evacuation is starting!");
         }
 
         // Wait a moment for the player to read the text
@@ -144,7 +144,7 @@ public class FinalEvacuationEvent : MonoBehaviour
 
         if (DialogueManager.Instance != null)
         {
-            DialogueManager.Instance.ShowDialogue("Baanita", "The path is clear! Go, Wooldrin, escape while it's open!");
+            DialogueManager.Instance.ShowDialogue("Baanita", "The path is clear! Go, Wooldrin, my son, escape while it's open!");
         }
     }
 }

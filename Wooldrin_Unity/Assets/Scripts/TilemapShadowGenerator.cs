@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using System.Collections.Generic;
 
+// We wrap the UnityEditor using statement so the build doesn't crash!
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -28,7 +29,6 @@ public class TilemapShadowGenerator : MonoBehaviour
 
         if (clearOldShadows)
         {
-            // Specifically look for both "Shadow_Shape_" and "Grid_Shadow_" naming conventions
             List<GameObject> childrenToDelete = new List<GameObject>();
             for (int i = 0; i < transform.childCount; i++)
             {
@@ -46,20 +46,17 @@ public class TilemapShadowGenerator : MonoBehaviour
             }
         }
 
-        // Loop through every distinct path (shape) in the composite collider
         for (int i = 0; i < compositeCollider.pathCount; i++)
         {
             Vector2[] pathVertices = new Vector2[compositeCollider.GetPathPointCount(i)];
             compositeCollider.GetPath(i, pathVertices);
 
-            // Create a new visible child object for each separate wall section
             GameObject shadowObject = new GameObject("Shadow_Shape_" + i);
             shadowObject.transform.SetParent(transform);
-
-            // Apply the nudge to keep it separate from physics logic
             shadowObject.transform.localPosition = new Vector3(0, verticalNudge, 0);
             shadowObject.hideFlags = HideFlags.None;
 
+            // Wrap the Undo command because it only exists in the Editor!
 #if UNITY_EDITOR
             Undo.RegisterCreatedObjectUndo(shadowObject, "Create Shadow Shape");
 #endif
@@ -68,7 +65,6 @@ public class TilemapShadowGenerator : MonoBehaviour
             shadowCaster.useRendererSilhouette = false;
             shadowCaster.selfShadows = false;
 
-            // Use Reflection to set the shape path, as it's not exposed in the standard API
             var fieldInfo = typeof(ShadowCaster2D).GetField("m_ShapePath",
                 System.Reflection.BindingFlags.NonPublic |
                 System.Reflection.BindingFlags.Instance);
@@ -79,7 +75,6 @@ public class TilemapShadowGenerator : MonoBehaviour
 
             fieldInfo.SetValue(shadowCaster, pathVerticesV3);
 
-            // Force a hash update so the shadow volume geometry updates in the editor
             var hashField = typeof(ShadowCaster2D).GetField("m_ShapePathHash",
                 System.Reflection.BindingFlags.NonPublic |
                 System.Reflection.BindingFlags.Instance);
@@ -90,6 +85,7 @@ public class TilemapShadowGenerator : MonoBehaviour
     }
 }
 
+// Wrap the entire custom editor interface!
 #if UNITY_EDITOR
 [CustomEditor(typeof(TilemapShadowGenerator))]
 public class TilemapShadowGeneratorEditor : Editor
@@ -105,7 +101,7 @@ public class TilemapShadowGeneratorEditor : Editor
             gen.GenerateShadowsFromCollider();
             SceneView.RepaintAll();
         }
-        EditorGUILayout.HelpBox("This creates a shadow shape for every island of tiles in your Composite Collider. It's much cleaner than the grid-scan method.", MessageType.Info);
+        EditorGUILayout.HelpBox("This creates a shadow shape for every island of tiles in your Composite Collider.", MessageType.Info);
     }
 }
 #endif
