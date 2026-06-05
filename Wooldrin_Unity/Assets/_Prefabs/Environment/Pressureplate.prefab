@@ -108,7 +108,7 @@ MonoBehaviour:
   unpressedSprite: {fileID: 0}
   pressedSprite: {fileID: 0}
   pressSound: {fileID: 0}
-  keepOpenWhenRemoved: 0
+  keepOpenWhenRemoved: 1
 --- !u!58 &6669901738815829326
 CircleCollider2D:
   m_ObjectHideFlags: 0
