@@ -17,10 +17,10 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Level_02_Stomach.unity
     guid: db76ef10e4d653d4daa2409c14b31699
-  - enabled: 0
-    path: Assets/Scenes/Level0.unity
-    guid: 2fa3bc8c1da26f4468957431d44aae14
-  - enabled: 0
-    path: Assets/Scenes/SampleScene.unity
-    guid: 8c9cfa26abfee488c85f1582747f6a02
+  - enabled: 1
+    path: Assets/Level_03_SmallIntestine.unity
+    guid: 256a87c45353de641b4c0f3849d0a43d
+  - enabled: 1
+    path: Assets/Level_04_LargeIntestine.unity
+    guid: a67bc933de7b5bb4fbeb2e6602006cb8
   m_configObjects: {}

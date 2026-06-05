@@ -12,4 +12,12 @@ public class MainMenuNavigator : MonoBehaviour
         // Replace "LandingPage" with the actual name of your menu scene
         SceneManager.LoadScene("LandingPage");
     }
+
+
+    // NEW: Quit the application
+    public void QuitGame()
+    {
+        Debug.Log("Quit Button Pressed! (Note: This only closes the built APK/EXE, not the Unity Editor)");
+        Application.Quit();
+    }
 }

@@ -27,15 +27,13 @@ public class GameManager : MonoBehaviour
 
     [Header("Progression Data")]
     public List<string> rescuedFamilyMembers = new List<string>();
+    public List<string> activeBuffs = new List<string>();
 
     [Header("Level Info")]
     public string firstLevelName = "Level_01_Throat";
-    public string cutsceneSceneName = "CutSceneLoad"; // Added tracking for the cutscene scene
+    public string cutsceneSceneName = "CutSceneLoad";
     public string mainMenuName = "LandingPage";
     public string currentStageName;
-
-    [Header("Buff Tracking")]
-    public List<string> activeBuffs = new List<string>();
 
     private void Awake()
     {
@@ -62,11 +60,9 @@ public class GameManager : MonoBehaviour
 
     private void OnLevelFinishedLoading(Scene scene, LoadSceneMode mode)
     {
-        // Safety reset to ensure game runs at normal speed in every new scene
         Time.timeScale = 1f;
         currentStageName = scene.name;
 
-        // --- HANDLE BACKGROUND MUSIC ---
         if (scene.name == mainMenuName)
         {
             UpdateBGM(menuMusic);
@@ -74,11 +70,9 @@ public class GameManager : MonoBehaviour
             DestroyPersistentObjects();
             return;
         }
-        // Don't auto-play general level music if we are in the introduction cutscene
         else if (scene.name == cutsceneSceneName)
         {
-            // If your cutscene uses separate Timeline audio tracks, stop the menu BGM here
-            if (bgmSource != null) bgmSource.Stop(); 
+            if (bgmSource != null) bgmSource.Stop();
         }
         else
         {
@@ -203,6 +197,7 @@ public class GameManager : MonoBehaviour
     private void ResetGameState()
     {
         rescuedFamilyMembers.Clear();
+        activeBuffs.Clear();
         isFireSpiritRescued = false;
         Debug.Log("GameManager: State Reset (Fire Spirit is now caged/unrescued).");
     }
@@ -216,9 +211,6 @@ public class GameManager : MonoBehaviour
         if (spirit != null) Destroy(spirit.gameObject);
     }
 
-    // --- NAVIGATION & PUBLIC METHODS ---
-
-    // Option 1 Implementation: Method targeted by your Main Menu Play Button
     public void LoadCutscene()
     {
         ResetGameState();
@@ -239,34 +231,60 @@ public class GameManager : MonoBehaviour
         if (nextIndex < SceneManager.sceneCountInBuildSettings)
             SceneManager.LoadScene(nextIndex);
         else
-            MakeWinGame(); // Renamed internally to keep clean logic separation
+            MakeWinGame();
     }
 
     public void RestartLevel()
     {
-        if (SceneManager.GetActiveScene().name == firstLevelName)
+        string currentLevel = SceneManager.GetActiveScene().name;
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        PlayerController pc = player != null ? player.GetComponent<PlayerController>() : null;
+
+        if (currentLevel == firstLevelName)
         {
             ResetGameState();
             FireSpiritController spirit = FindObjectOfType<FireSpiritController>();
             if (spirit != null) Destroy(spirit.gameObject);
         }
+        else
+        {
+            // NEW: If you die, we must "un-rescue" the current level's family member so they respawn
+            // We also undo their buff so it doesn't multiply infinitely!
+            if (currentLevel == "Level_02_Stomach")
+            {
+                rescuedFamilyMembers.Remove("Daisy");
+                if (pc != null) pc.moveSpeed = 5f; // Revert speed buff back to default
+            }
+            else if (currentLevel == "Level_03_SmallIntestine")
+            {
+                rescuedFamilyMembers.Remove("Baaron");
+                if (pc != null) pc.canKickWool = false; // Re-lock kick ability
+            }
+            else if (currentLevel == "Level_04_LargeIntestine")
+            {
+                rescuedFamilyMembers.Remove("Baanita");
+            }
+        }
 
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        // Force a total health and physics reset on the player
         if (player != null)
         {
             WooldrinHealth health = player.GetComponent<WooldrinHealth>();
             if (health != null) health.ResetHealth();
+
+            Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
+            if (rb != null) rb.velocity = Vector2.zero; // Stops sliding/knockback bugs on respawn
         }
 
         Time.timeScale = 1f;
-        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        SceneManager.LoadScene(currentLevel);
     }
 
     public void GoToMainMenu()
     {
-        Time.timeScale = 1f; 
-        ResetGameState();    
-        DestroyPersistentObjects(); 
+        Time.timeScale = 1f;
+        ResetGameState();
+        DestroyPersistentObjects();
         SceneManager.LoadScene(mainMenuName);
     }
 
@@ -306,32 +324,35 @@ public class GameManager : MonoBehaviour
 
     public void ApplyBuff(string familyMemberID)
     {
+        if (!activeBuffs.Contains(familyMemberID)) activeBuffs.Add(familyMemberID);
+
         switch (familyMemberID)
         {
             case "Elder Baa":
-                // Already handled: Unlocks Wool Skill
+                // Already handled in the Ghost Tutorial
                 break;
             case "Daisy":
-                // Buff: 20% Faster Move Speed
-                // You can reference player's moveSpeed here
                 GameObject player = GameObject.FindGameObjectWithTag("Player");
                 if (player != null) player.GetComponent<PlayerController>().moveSpeed *= 1.2f;
-                break;
-            case "Baaron":
-                // Buff: Unlocks/Boosts Kick Mechanic
+                Debug.Log("GameManager: Daisy speed buff applied!");
                 break;
             case "Baanita":
-                // Buff: Holds the Exit Key
+                // Suppository logic (Exit Key)
                 break;
         }
     }
+
     public void UnlockKickMechanic()
     {
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
-            player.GetComponent<PlayerController>().canKickWool = true;
+            PlayerController pc = player.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                pc.canKickWool = true;
+                Debug.Log("GameManager: Kick mechanic unlocked by Baaron!");
+            }
         }
     }
-
 }

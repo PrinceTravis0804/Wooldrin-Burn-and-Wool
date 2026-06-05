@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.SceneManagement; // Required to check the scene name
+using UnityEngine.SceneManagement;
 
 public class PlaySound : MonoBehaviour
 {
@@ -13,10 +13,10 @@ public class PlaySound : MonoBehaviour
     public string stomachSceneName = "Level_02_Stomach";
     [Tooltip("The wet sloshing walk sound effect file.")]
     public AudioClip wetWalkClip;
-    [Range(0f, 1f)] public float wetWalkVolume = 0.5f; // New volume setting
+    [Range(0f, 1f)] public float wetWalkVolume = 0.5f;
 
     private AudioClip defaultWalkClip;
-    private float defaultWalkVolume; // Stores the original AudioSource volume
+    private float defaultWalkVolume;
     private bool isStomachLevel = false;
 
     void Start()
@@ -25,7 +25,7 @@ public class PlaySound : MonoBehaviour
         if (walkSound != null)
         {
             defaultWalkClip = walkSound.clip;
-            defaultWalkVolume = walkSound.volume; // Remember original volume
+            defaultWalkVolume = walkSound.volume;
         }
 
         // Check if we started directly in the stomach level
@@ -42,15 +42,15 @@ public class PlaySound : MonoBehaviour
             // Swap the clip dynamically depending on the level
             if (walkSound != null && !walkSound.isPlaying)
             {
-                if(isStomachLevel && wetWalkClip != null)
+                if (isStomachLevel && wetWalkClip != null)
                 {
                     walkSound.clip = wetWalkClip;
-                    walkSound.volume = wetWalkVolume; // Apply the wet volume tweak
+                    walkSound.volume = wetWalkVolume;
                 }
                 else
                 {
                     walkSound.clip = defaultWalkClip;
-                    walkSound.volume = defaultWalkVolume; // Revert to normal volume
+                    walkSound.volume = defaultWalkVolume;
                 }
 
                 walkSound.Play();
@@ -65,7 +65,8 @@ public class PlaySound : MonoBehaviour
         }
 
         // --- FIRING LOGIC ---
-        if (Input.GetMouseButtonDown(1))
+        // CHANGED: 1 (Right Click) is now 0 (Left Click)
+        if (Input.GetMouseButtonDown(0))
         {
             if (fireSound != null && fireSound.clip != null)
             {
